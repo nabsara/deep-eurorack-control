@@ -13,3 +13,4 @@ torch==1.9.1
 torchvision==0.10.1
 tqdm==4.62.3
 tensorboard==2.7.0
+crepe==0.0.12
