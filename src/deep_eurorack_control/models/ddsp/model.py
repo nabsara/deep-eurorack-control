@@ -18,7 +18,7 @@ class DDSP:
         self.n_bands = n_bands
         self.scales = [2048,1024,512,256,128,64]
         
-        self.decoder = Decoder(self.n_harmonics,self.n_bands)
+        self.decoder = Decoder(self.n_harmonics,self.n_bands).to(settings.device)
         
         
     def _init_optimizer(self, learning_rate,beta_1=0.9,beta_2=0.999):

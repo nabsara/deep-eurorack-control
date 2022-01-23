@@ -27,7 +27,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--n_bands",
-    default=256,
+    default=65,
     help="Number of frequency bands for the substractive synthesizer",
 )
 @click.option(
