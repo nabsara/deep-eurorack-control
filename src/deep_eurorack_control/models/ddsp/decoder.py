@@ -40,7 +40,7 @@ class Decoder(nn.Module):
         net_out =self.mlp_out(torch.cat([gru_out,pitch,loud],-1))
         
         harmonics = self.dense_amps(net_out)
-        harmonics = 2*torch.sigmoid(harmonics)**(torch.log(torch.tensor([10]))) + 1e-7
+        harmonics = 2*torch.sigmoid(harmonics)**(torch.log(10)) + 1e-7
         filters = self.dense_filters(net_out)
-        filters = 2*torch.sigmoid(filters)**(torch.log(torch.tensor([10]))) + 1e-7
+        filters = 2*torch.sigmoid(filters)**(torch.log(10)) + 1e-7
         return harmonics,filters
