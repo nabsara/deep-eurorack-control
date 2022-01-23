@@ -6,11 +6,11 @@ from deep_eurorack_control.config import settings
 
 def get_pitch(signal,sr,frame_size):
     step_size = int(1000*frame_size/sr)
-    pitch = crepe.predict(signal,sr,model_capacity = 'small',viterbi=True,verbose=False,step_size=step_size)[1][:-1]
+    pitch = crepe.predict(signal,sr,model_capacity = 'medium',viterbi=True,verbose=False,step_size=step_size)[1][:-1]
     return(pitch)
 
-def get_loudness(signal,sr,frame_size,n_fft=2048):
-    stft = librosa.stft(signal,hop_length=frame_size,n_fft=2048)[:,:-1]
+def get_loudness(signal,sr,frame_size,n_fft=1024):
+    stft = librosa.stft(signal,hop_length=frame_size,n_fft=1024)[:,:-1]
     freqs = np.linspace(0,sr/2,int(n_fft/2+1))
     a_weighting = librosa.A_weighting(freqs)
     stft_log = np.log10(np.abs(stft)+1e-7) + a_weighting .reshape(-1,1)
@@ -36,7 +36,7 @@ def noise_synth(H,frame_size):
     h = torch.roll(h,-int(h.shape[-1]/2))
     H = torch.fft.rfft(h)
     
-    noise = torch.rand(H.shape[0],H.shape[1],frame_size).to(settings.device)
+    noise =2*torch.rand(H.shape[0],H.shape[1],frame_size).to(settings.device)-1
     
     noise_fft = torch.fft.rfft(noise)
     noise_out = torch.fft.irfft(noise_fft * H)
@@ -49,7 +49,7 @@ def spectral_loss(scales,xin,xout,alpha=1):
     for scale in scales:
         stft_in = abs(torch.stft(xin,n_fft = scale,return_complex=True)) + 1e-7
         stft_out = abs(torch.stft(xout,n_fft = scale,return_complex=True)) + 1e-7
-        L_total += torch.norm(stft_in-stft_out,2,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in) - torch.log(stft_out) ,2,dim = (1,2))
+        L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in) - torch.log(stft_out) ,1,dim = (1,2))
     return(L_total)
 
 def upsample(array,n_final):
