@@ -19,9 +19,9 @@ def get_loudness(signal,sr,frame_size,n_fft=2048):
 
 
 def h_synth(f0,amps,sr):
-    freqs = f0 * torch.arange(1,amps.shape[-1]+1)[None,None,:]
+    freqs = f0 * torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
     amps = amps*(freqs<sr/2)
-    phases = 2*np.pi*freqs/sr * torch.arange(0,amps.shape[1])[None,:,None]
+    phases = 2*np.pi*freqs/sr * torch.arange(0,amps.shape[1]).to(settings.device)[None,:,None]
     wave = amps*torch.sin(phases)
     return(torch.sum(wave,axis=-1))
 
@@ -31,7 +31,7 @@ def noise_synth(H,frame_size):
     h = torch.roll(h,int(h.shape[-1]/2))
     size_dif = frame_size-h.shape[-1]
     h = torch.nn.functional.pad(h,(int(size_dif/2),int(size_dif/2)))
-    w = torch.hann_window(frame_size)
+    w = torch.hann_window(frame_size).to(settings.device)
     h = w[None,None,:]*h
     h = torch.roll(h,-int(h.shape[-1]/2))
     H = torch.fft.rfft(h)
