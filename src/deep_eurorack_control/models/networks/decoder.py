@@ -1,56 +1,137 @@
 import torch.nn as nn
+from torch.nn.utils import weight_norm
+
+
+class ResnetBlock(nn.Module):
+
+    def __init__(self, dim, dilation=1):
+        super(ResnetBlock, self).__init__()
+        self.block = nn.Sequential(
+            nn.LeakyReLU(negative_slope=0.2),
+            weight_norm(nn.Conv1d(dim, dim, kernel_size=3, dilation=dilation)),
+            nn.LeakyReLU(negative_slope=0.2),
+            weight_norm(nn.Conv1d(dim, dim, kernel_size=3, dilation=1))
+        )
+
+        self.shortcut = weight_norm(nn.Conv1d(dim, dim, kernel_size=1))
+
+    def forward(self, x):
+        return self.shortcut(x) + self.block(x)
 
 
 class ResidualStack(nn.Module):
 
-    def __init__(self):
+    def __init__(self, dim):
         super(ResidualStack, self).__init__()
 
+        dilation = [1, 3, 9]
+        blocks = [ResnetBlock(dim, dilation[i]) for i in range(len(dilation))]
+        self.net = nn.Sequential(*blocks)
+
     def forward(self, x):
-        pass
+        self.net(x)
+
+
+class UpSamplingLayer(nn.Module):
+
+    def __init__(self, in_dim, out_dim, kernel_size, stride):
+        super(UpSamplingLayer, self).__init__()
+
+        self.net = nn.Sequential(
+            nn.LeakyReLU(negative_slope=0.2),
+            weight_norm(nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride=stride))
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 
 class NoiseSynthesizer(nn.Module):
 
-    def __init__(self):
+    def __init__(self, in_dim, out_dim, ratios, noise_bands):
         super(NoiseSynthesizer, self).__init__()
 
+        net = []
+
+        for i in range(len(ratios) - 1):
+            net.append(nn.Sequential(
+                nn.Conv1d(in_dim, in_dim, 3, stride=ratios[i]),
+                nn.LeakyReLU(negative_slope=0.2)
+            ))
+
+        # last layer
+        net.append(nn.Sequential(
+            nn.Conv1d(in_dim, out_dim * noise_bands, 3, stride=ratios[-1]),
+            nn.LeakyReLU(negative_slope=0.2)  # cf. schema
+        ))
+
+        self.net = nn.Sequential(*net)
+
+    def forward(self, x):
+        # TODO: add white noise + filter
+        pass
 
 
 class Decoder(nn.Module):
 
-    def __init__(self):
+    def __init__(self, data_size, latent_dim=128, hidden_dim=64):
         super(Decoder, self).__init__()
 
-        blocks = []
+        ratios = [4, 4, 4, 2]
 
-        block = nn.Sequential(
-            nn.LeakyReLU(negative_slope=0.2),
-            nn.ConvTranspose1d(),
-            ResidualStack()
-        )
+        # 1st conv layer
+        net = [nn.Sequential(
+            weight_norm(nn.Conv1d(latent_dim, 2**len(ratios) * hidden_dim, 7, stride=1))
+        )]
+
+        # 4x : upsampling (LeakyReLU and convTransposed)
+        # + residual stack (LeakyReLU and dilated conv)
+        for i, r in enumerate(ratios):
+            net.append(nn.Sequential(
+                UpSamplingLayer(
+                    in_dim=2**(len(ratios) - i) * hidden_dim,
+                    out_dim=2**(len(ratios) - (i + 1)) * hidden_dim,
+                    kernel_size=2 * r + 1,
+                    stride=r
+                ),
+                ResidualStack(dim=2**(len(ratios) - (i + 1)) * hidden_dim)
+            ))
 
         # modified version of the generator proposed by Kumar
         # et al. (2019) ie. same alternation of upsampling
         # layers and residual networks but instead of directly
         # outputting the raw waveform we feed the last hidden
         # layer to three sub-networks.
-        self.net = nn.Sequential(*blocks)
+        self.net = nn.Sequential(*net)
         # 1st subnetwork (waveform) synthesizes a multiband
         # audio signal (with tanh activation)
-        self.waveform = nn.Sequential()
+        self.waveform = nn.Sequential(
+            weight_norm(nn.Conv1d(hidden_dim, data_size, 7)),
+            nn.Tanh()
+        )
         # 2nd sub-network (loudness), generating an amplitude
         # envelope (with sigmoid activation)
-        self.loudness = nn.Sequential()
+        self.loudness = nn.Sequential(
+            weight_norm(nn.Conv1d(hidden_dim, 1, 3, stride=1)),
+            nn.Sigmoid()
+        )
         # 3rd sub-network noise synthesizer (proposed in
         # Engel et al. (2019)), and produces a multiband
         # filtered noise added to the previous signal.
-        self.noise_synth = NoiseSynthesizer()
+        # self.noise_synth = NoiseSynthesizer(
+        #     in_dim=hidden_dim,
+        #     out_dim=data_size,
+        #     ratios=noise_ratios,
+        #     noise_bands=noise_bands
+        # )
 
     def forward(self, x):
         x_dec = self.net(x)
         waveform = self.waveform(x_dec)
         loudness = self.loudness(x_dec)
-        noise = self.noise_synth(x_dec)
-        output = waveform * loudness + noise
+        output = waveform * loudness
+
+        # TODO: implement NoiseSynthesizer forward
+        # noise = self.noise_synth(x_dec)
+        # output = waveform * loudness + noise
         return output

@@ -2,33 +2,35 @@ import torch.nn as nn
 
 
 class Encoder(nn.Module):
-
-    def __init__(self, data_size, latent_dim=128):
+    """
+    data_sise = 16   # equal to n_band in PQMF
+    """
+    def __init__(self, data_size, latent_dim=128, hidden_dim=64):
         super(Encoder, self).__init__()
-        self.data_size = data_size  # equal to n_band in PQMF
-        self.latent_dim = latent_dim
-        self.hidden_dims = [64, 128, 256, 512]
-        self.strides = [4, 4, 4, 2]
 
-        layers_dim = [self.data_size] + self.hidden_dims
-        kernels = [7] + [2 * s + 1 for s in self.strides]
-        self.strides.insert(0, 1)
-        blocks = []
-        for i in range(len(layers_dim) - 1):
-            blocks.append(nn.Sequential(
-                nn.Conv1d(layers_dim[i], layers_dim[i+1], kernels[i], stride=self.strides[i]),
-                nn.BatchNorm1d(layers_dim[i+1]),
+        ratios = [4, 4, 4, 2]
+
+        # 1st conv layer
+        net = [nn.Sequential(
+            nn.Conv1d(data_size, hidden_dim, 7, stride=1)
+        )]
+
+        # 4x conv batchnorm LeakyReLu
+        for i, r in enumerate(ratios):
+            net.append(nn.Sequential(
+                nn.Conv1d(2**i * hidden_dim, 2**(i + 1) * hidden_dim, kernel_size=2 * r + 1, stride=r),
+                nn.BatchNorm1d(2**(i + 1) * hidden_dim),
                 nn.LeakyReLU(negative_slope=0.2)
             ))
 
-        self.net = nn.Sequential(*blocks)
+        self.net = nn.Sequential(*net)
 
         self.mean = nn.Sequential(
-            nn.Conv1d(self.hidden_dims[-1], self.latent_dim, 5)
+            nn.Conv1d(2**len(ratios) * hidden_dim, latent_dim, 5)
         )
 
         self.var = nn.Sequential(
-            nn.Conv1d(self.hidden_dims[-1], self.latent_dim, 5),
+            nn.Conv1d(2**len(ratios) * hidden_dim, latent_dim, 5),
             nn.Softplus()
         )
 
