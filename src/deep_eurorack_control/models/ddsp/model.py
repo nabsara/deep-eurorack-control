@@ -49,7 +49,6 @@ class DDSP:
         it_display = 0
         
         it = 0  # number of batch iterations updated at the end of the dataloader for loop
-        
         for epoch in range(n_epochs):
             it=0
             for data in tqdm(dataloader):
@@ -59,14 +58,13 @@ class DDSP:
                 signal_in = audio.reshape(audio.shape[0],-1).to(settings.device)
                 
                 self._opt.zero_grad()
-                
                 harmonics,filters = self.decoder(pitch,loud)
                 signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
-
+                
                 loss = self._compute_loss(signal_in,signal_out)
                 loss.backward()
+              
                 self._opt.step()
-            
                 losses.append(loss.item())
                 display_loss += loss.item()
                 it_display+=1 
@@ -91,6 +89,8 @@ class DDSP:
                     with torch.no_grad():
                         real_audio = signal_in[:4].detach().cpu()
                         rec_audio = signal_out[:4].detach().cpu()
+                        rec_harmonics,rec_filters = harmonics.detach(),filters.detach()
+                        
                     
                         for j in range(real_audio.shape[0]):
                             writer.add_audio(

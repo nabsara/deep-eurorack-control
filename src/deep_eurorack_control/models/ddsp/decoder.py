@@ -22,7 +22,7 @@ class Decoder(nn.Module):
             return(nn.Sequential(
                 nn.Linear(n_in,n_out),
                 nn.LayerNorm(n_out),
-                nn.ReLU(inplace=True)
+                nn.LeakyReLU(inplace=True)
             ))
                 
         return(nn.Sequential(

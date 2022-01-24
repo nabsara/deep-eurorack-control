@@ -47,9 +47,9 @@ def noise_synth(H,frame_size):
 def spectral_loss(scales,xin,xout,alpha=1):
     L_total = torch.zeros(xin.shape[0]).to(settings.device)
     for scale in scales:
-        stft_in = abs(torch.stft(xin,n_fft = scale,return_complex=True)) + 1e-7
-        stft_out = abs(torch.stft(xout,n_fft = scale,return_complex=True)) + 1e-7
-        L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2))
+        stft_in = torch.abs(torch.stft(xin,n_fft = scale,return_complex=True)) 
+        stft_out = torch.abs(torch.stft(xout,n_fft = scale,return_complex=True))
+        L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2)) + torch.mean(torch.abs(torch.log(stft_in+1e-7) - torch.log(stft_out+1e-7)),dim=(1,2))
         # L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in) - torch.log(stft_out) ,1,dim = (1,2))
     return(L_total)
 
@@ -63,11 +63,13 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     level = harmonics[:,:,:1]
     amps = level * amps/torch.sum(amps,axis=-1,keepdim=True)
 
+ 
+
     len_signal = pitch.shape[1]*frame_size
     
     amps = upsample(amps,len_signal)
     f0  =  upsample(pitch,len_signal)
 
-    signal = h_synth(f0,amps,sr) + noise_synth(filters,frame_size)
+    signal = h_synth(f0,amps,sr)#+ noise_synth(filters,frame_size)
     return(signal)
 
