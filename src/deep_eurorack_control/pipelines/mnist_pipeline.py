@@ -1,4 +1,4 @@
-from deep_eurorack_control.datasets.mnist_data_loader import mnist_data_loader
+from deep_eurorack_control.datasets.data_loaders import mnist_data_loader
 from deep_eurorack_control.models.vae import ModelVAE
 
 
