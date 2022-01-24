@@ -7,6 +7,7 @@ from deep_eurorack_control.config import settings
 
 from deep_eurorack_control.models.ddsp.decoder import Decoder
 from deep_eurorack_control.models.ddsp.ops import *
+from deep_eurorack_control.helpers.ddsp import plot_metrics
 
 
 class DDSP:
@@ -89,10 +90,12 @@ class DDSP:
                     with torch.no_grad():
                         real_audio = signal_in[:4].detach().cpu()
                         rec_audio = signal_out[:4].detach().cpu()
-                        rec_harmonics,rec_filters = harmonics.detach(),filters.detach()
-                        
+                        rec_harmonics = harmonics.detach().cpu().numpy()
+                        pitchp,loudp = pitch[:4].detach().cpu().numpy(), 
+                        loudp = loud[:4].detach().cpu().numpy() 
                     
                         for j in range(real_audio.shape[0]):
+                            figure = plot_metrics(pitchp[j],loudp[j],rec_audio[j],rec_harmonics[j],self.sr,self.frame_size)
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),
                                         rec_audio[j],
@@ -106,6 +109,12 @@ class DDSP:
                                         global_step=epoch * len(dataloader) + it,
                                         sample_rate=self.sr,
                                     )   
+                            
+                            writer.add_figure(
+                            "Output Images/" + str(j),
+                            figure,
+                            global_step=epoch * len(dataloader) + it,
+                            )   
                         
             if epoch % 10 == 0 or epoch == n_epochs - 1 :                
                 torch.save(
