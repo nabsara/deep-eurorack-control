@@ -49,7 +49,8 @@ def spectral_loss(scales,xin,xout,alpha=1):
     for scale in scales:
         stft_in = abs(torch.stft(xin,n_fft = scale,return_complex=True)) + 1e-7
         stft_out = abs(torch.stft(xout,n_fft = scale,return_complex=True)) + 1e-7
-        L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in) - torch.log(stft_out) ,1,dim = (1,2))
+        L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2))
+        # L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in) - torch.log(stft_out) ,1,dim = (1,2))
     return(L_total)
 
 def upsample(array,n_final):
