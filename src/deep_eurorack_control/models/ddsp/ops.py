@@ -10,10 +10,12 @@ def get_pitch(signal,sr,frame_size):
     return(pitch)
 
 def get_loudness(signal,sr,frame_size,n_fft=1024):
-    stft = librosa.stft(signal,hop_length=frame_size,n_fft=1024)[:,:-1]
-    freqs = np.linspace(0,sr/2,int(n_fft/2+1))
+    stft = librosa.stft(signal,hop_length=frame_size,n_fft=1024,win_length=1024)[:,:-1]
+    # freqs = np.linspace(0,sr/2,int(n_fft/2+1))
+    freqs = librosa.fft_frequencies(sr, n_fft=1024)
+    freqs[0] += 1e-6
     a_weighting = librosa.A_weighting(freqs)
-    stft_log = np.log10(np.abs(stft)+1e-7) + a_weighting .reshape(-1,1)
+    stft_log = np.log(np.abs(stft)+1e-7) + a_weighting.reshape(-1,1)
     loudness = np.mean(stft_log,axis=0)
     return(loudness)
 
@@ -61,15 +63,14 @@ def upsample(array,n_final):
 def generate_signal(pitch,harmonics,filters,frame_size,sr):
     amps = harmonics[:,:,1:]
     level = harmonics[:,:,:1]
-    amps = level * amps/torch.sum(amps,axis=-1,keepdim=True)
+    amps = level*amps/torch.sum(amps,axis=-1,keepdim=True)
 
- 
 
     len_signal = pitch.shape[1]*frame_size
     
     amps = upsample(amps,len_signal)
     f0  =  upsample(pitch,len_signal)
 
-    signal = h_synth(f0,amps,sr)#+ noise_synth(filters,frame_size)
+    signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
     return(signal)
 

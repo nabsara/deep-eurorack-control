@@ -4,7 +4,7 @@
 Module that defines utils functions
 """
 
-import pickle
+import pickle5 as pickle
 
 
 def save_pickle(data_dict, filepath):

@@ -60,6 +60,7 @@ class DDSP:
                 
                 self._opt.zero_grad()
                 harmonics,filters = self.decoder(pitch,loud)
+
                 signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
                 
                 loss = self._compute_loss(signal_in,signal_out)
@@ -72,7 +73,7 @@ class DDSP:
                 it+=1
                 
                 
-                if it % display_step == 0 or (it== len(dataloader) - 1):
+                if (it-1) % display_step == 0 or (it== len(dataloader) - 1):
                     print(
                         f"\nEpoch: [{epoch}/{n_epochs}] \tStep: [{it}/{len(dataloader)}]"
                         f"\tTime: {time.time() - start} (s)\tLoss: {display_loss/it_display}"
@@ -91,11 +92,12 @@ class DDSP:
                         real_audio = signal_in[:4].detach().cpu()
                         rec_audio = signal_out[:4].detach().cpu()
                         rec_harmonics = harmonics.detach().cpu().numpy()
-                        pitchp,loudp = pitch[:4].detach().cpu().numpy(), 
-                        loudp = loud[:4].detach().cpu().numpy() 
-                    
+
+                        pitchp = pitch[:4].detach().cpu().numpy()
+                        loudp  = loud[:4].detach().cpu().numpy() 
+
                         for j in range(real_audio.shape[0]):
-                            figure = plot_metrics(pitchp[j],loudp[j],rec_audio[j],rec_harmonics[j],self.sr,self.frame_size)
+                            figure = plot_metrics(pitchp[j],loudp[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],self.sr,self.frame_size)
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),
                                         rec_audio[j],
