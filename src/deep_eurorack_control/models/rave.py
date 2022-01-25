@@ -27,10 +27,12 @@ class RAVE:
         )
         self.discriminator = Discriminator()
 
-        self.adv_train = False
+        self.warmed_up = False
 
-    def _init_optimizer(self):
-        pass
+    def _init_optimizer(self, learning_rate, beta_1=0.5, beta_2=0.9):
+        param_vae = list(self.encoder.parameters()) + list(self.decoder.parameters())
+        self.vae_opt = torch.optim.Adam(param_vae, lr=learning_rate, betas=(beta_1, beta_2))
+        self.disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(beta_1, beta_2))
 
     def _init_criterion(self):
         pass
@@ -49,29 +51,92 @@ class RAVE:
         kl_div = 0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma))
         return kl_div / n_batch
 
-    def train_step(self, data_current_batch):
+    @staticmethod
+    def multiscale_stft(signal, scales, overlap):
+        stfts = []
+        for n in scales:
+            s = torch.stft(
+                input=signal,
+                n_fft=n,
+                hop_length=int(n * (1 - overlap)),
+                win_length=n,
+                window=torch.hann_window(n).to(signal),
+                center=True,
+                normalized=True,
+                return_complex=True
+            ).abs()
+            stfts.append(s)
+        return stfts
+
+    @staticmethod
+    def lin_distance(x, y):
+        return torch.norm(x - y) / torch.norm(x)
+
+    @staticmethod
+    def log_distance(x, y):
+        return abs(torch.log(x + 1e-7) - torch.log(y + 1.e-7)).mean()
+
+    def multiscale_spectral_distance(self, x, y):
+        scales = [2048, 1024, 512, 256, 128]
+        x = self.multiscale_stft(x, scales, 0.75)
+        y = self.multiscale_stft(y, scales, 0.75)
+
+        lin = sum(list(map(self.lin_distance, x, y)))
+        log = sum(list(map(self.log_distance, x, y)))
+
+        return lin + log
+
+    def train_step(self, data_current_batch, step, beta=0.1):
         """Inside a Batch"""
         # STEP 1:
+        x = data_current_batch.to(settings.device)
         # multi band decomposition pqmf
+        # TODO
 
         # Encode data
         # if train step 1 repr learning encoder.train()
         # else (train step 2 adversarial) freeze encoder encoder.eval()
+        if self.warmed_up:
+            self.encoder.eval()
+        else:
+            self.encoder.train()
+        mean, var = self.encoder(x)
 
         # get latent space samples
+        z = self.sampling(x, mean, var)
+        # compute regularization loss
+        kl_loss = self.kl_div_loss(x, mean, var)
+        if self.warmed_up:
+            z = z.detach()
+            kl_loss = kl_loss.detach()
 
         # Decode latent space samples
+        x_pred = self.decoder(z)
 
-        # compute regularization loss
-        # compute reconstruction loss
+        # compute reconstruction loss ie. multiscale spectral distance
+        spectral_loss = self.multiscale_spectral_distance(x, x_pred)
+        # total loss
+        loss_vae = torch.mean(spectral_loss - beta * kl_loss)
+
+        # inverse multi band decomposition (pqmf -1)
+        # TODO
+        y = None
 
         # STEP 2:
-        # inverse multi band decomposition (pqmf -1)
+        loss_feature_matching_distance = 0
+        loss_adv = 0
+        loss_disc = 0
+        if self.warmed_up:
+            # compute discriminator loss on fake and real data
+            real_features = self.discriminator(x)
+            fake_features = self.discriminator(y)
 
-        # compute discriminator loss on fake and real data
+            # TODO: Compute Hinge loss
 
         # FINALLY:
-        # compute decoder-generator loss
+        # compute vae (decoder-generator) loss
+        loss_gen = loss_feature_matching_distance + loss_adv
+        loss_vae_gen = loss_vae + loss_gen
 
         # optimizer steps:
         # Before the backward pass, zero all of the network gradients
@@ -80,6 +145,14 @@ class RAVE:
         # loss.backward()
         # Calling the step function to update the parameters
         # self.optimizer.step()
+        if step % 2 and self.warmed_up:
+            self.disc_opt.zero_grad()
+            loss_disc.backward()
+            self.disc_opt.ste()
+        else:
+            self.vae_opt.zero_grad()
+            loss_vae_gen.backward()
+            self.vae_opt.step()
         pass
 
     def validation_step(self, current_batch):
@@ -100,7 +173,7 @@ class RAVE:
     def train(self, train_loader, valid_loader, lr, n_epochs, display_step, models_dir, model_filename):
         start = time.time()
 
-        self._init_optimizer()
+        self._init_optimizer(lr)
         self._init_criterion()
 
         train_losses = []
@@ -111,7 +184,6 @@ class RAVE:
             it_display = 0
             loss_display = 0
             for x, _ in tqdm(train_loader):
-                x = x.to(settings.device)
                 self.train_step(x)
 
                 loss = 1  # TODO: retrieve losses from train_step()
