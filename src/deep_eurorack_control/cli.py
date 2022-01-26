@@ -22,7 +22,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--n_harmonics",
-    default=101,
+    default=51,
     help="Number of harmonics for the harmonic synthesizer",
 )
 @click.option(
@@ -37,7 +37,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--batch_size",
-    default=32,
+    default=16,
     help="Batch Size",
 )
 @click.option(
@@ -47,7 +47,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--display_step",
-    default=10,
+    default=150,
     help="Los and Tensorboard display step",
 )
 @click.option(
@@ -62,7 +62,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--filters",
-    default=["string_acoustic"],
+    default="string_acoustic",
     help="Dataset to process(if preprocess==True)",
 )
 @click.option(
@@ -72,8 +72,8 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir):
     if preprocess==True:
-        
         preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=None)
     pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands)   
     pipeline.train(lr,batch_size,n_epochs,display_step,logdir)
+    
     

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from nbformat import from_dict
 import numpy as np
-
+import torch
 
 from deep_eurorack_control.models.ddsp.ops import get_loudness
 
@@ -58,17 +58,50 @@ def plot_filters(filters,sr,ax=None,fig=None,times=None):
     # ax.set_title('Harmonic distribution')
     ax.set_xlabel(labelRow)
     ax.set_ylabel(labelCol)
+ 
+def plot_stft(stft,sr,ax=None,fig=None,times=None,label=None):
+    def add_colorbar(fig, ax, im):
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            fig.colorbar(im, cax=cax, orientation="vertical")
+
+    if fig is None:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+
+    freqs = np.linspace(0,sr/2,stft.shape[0])
+    
+    if times is None:
+        times = np.arange(stft.shape[1])
+
+
+    X, Y = np.meshgrid(times, freqs)
+
+    im0 = ax.pcolor(X, Y, 20*np.log10(np.abs(stft)+1e-6), cmap="magma",shading='auto')
+
+    add_colorbar(fig, ax, im0)
+    labelRow = "Time (s)"
+    # labelCol = "Frequency (Hz)"
+    ax.set_title(label)
+    # ax.set_xlabel(labelRow)
+    # ax.set_ylabel(labelCol)
+    
+       
     
     
-    
-def plot_metrics(pitch,loud,signal_in,signal_out,harmonics,filters,sr,frame_size):
+def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size):
 
     level = harmonics[:,0]
     harmonics_mag = harmonics[:,1:]/np.sum(harmonics[:,1:],axis=-1,keepdims=True)
     loud_out = get_loudness(signal_out,sr,frame_size,n_fft=1024)
-
-    fig = plt.figure(figsize=(12,5))
-    spec = fig.add_gridspec(4,2)
+    loud = get_loudness(signal_in,sr,frame_size,n_fft=1024)
+    
+    
+    stft_in =  torch.abs(torch.stft(torch.tensor(signal_in),n_fft = 1024,return_complex=True,normalized=False,window=torch.hann_window(1024)    )  ).numpy() 
+    stft_out = torch.abs(torch.stft(torch.tensor(signal_out),n_fft = 1024,return_complex=True,normalized=False,window=torch.hann_window(1024) )  ).numpy()
+    
+    
+    fig = plt.figure(figsize=(20,6))
+    spec = fig.add_gridspec(4,3)
     
     ax_pitch = fig.add_subplot(spec[0, 0])
     ax_loud = fig.add_subplot(spec[1, 0])
@@ -78,17 +111,21 @@ def plot_metrics(pitch,loud,signal_in,signal_out,harmonics,filters,sr,frame_size
     ax_harm = fig.add_subplot(spec[:2, 1])
     ax_filters = fig.add_subplot(spec[2:, 1])
     
+    ax_stft_in = fig.add_subplot(spec[:2, 2])
+    ax_stft_out = fig.add_subplot(spec[2:, 2])   
+    
+    
     times = np.linspace(0,pitch.shape[0]*frame_size/sr,pitch.shape[0])
-    print(times.shape)
-    ax_pitch.plot(times,pitch,color='k',linestyle='--',label='Target')
+    ax_pitch.plot(times,pitch,color='k',linewidth = 0.75,label='Target')
     
     ax_loud.plot(times,loud_out,label='Reconstructed')
     ax_loud.plot(times,loud,color='k',linestyle='--',label='Target')
     
     ax_level.plot(times,level,label='Reconstructed')
     
-    ax_wave.plot(signal_out[:1500])
-    ax_wave.plot(signal_in[:1500],alpha=0.4)
+    ax_wave.plot(signal_in[:1024],alpha=0.8,color='k',linewidth=0.6)
+
+    ax_wave.plot(signal_out[:1024],linewidth=0.6)
     
     ax_pitch.set_ylabel('Pitch (Hz)')
     # ax_pitch.legend()
@@ -112,5 +149,11 @@ def plot_metrics(pitch,loud,signal_in,signal_out,harmonics,filters,sr,frame_size
 
     plot_harmonics(harmonics_mag,ax_harm,fig,times)
     plot_filters(filters,sr,ax_filters,fig,times)
+    plot_stft(stft_in,sr,ax_stft_in,fig,None,'STFT IN')
+    plot_stft(stft_out,sr,ax_stft_out,fig,None,'STFT OUT')
+
+    ax_stft_in.get_xaxis().set_visible(False)
+    ax_stft_out.get_xaxis().set_visible(False)
+    
     return (fig)
         

@@ -8,19 +8,18 @@ from deep_eurorack_control.helpers.utils import save_pickle
 from deep_eurorack_control.models.ddsp.ops import get_loudness,get_pitch
 
 
-def preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=None):
-    filter=['string_acoustic']
+def preprocess_dataset(raw_data_dir,dataset_dir,filter,sr,frame_size,nb_files=None):
+    # filters=['string_acoustic']
     files= os.listdir(raw_data_dir) 
     os.makedirs(dataset_dir,exist_ok=True)
     audio_files = []
     for file in files:
-        for key in filters:
-            if file.find(key) != -1:
+            if filter in file:
                 audio_files.append(os.path.join(raw_data_dir,file))
-                break
+                # break
     
     
-    print("heeloooooo",len(audio_files))
+    # print("heeloooooo",len(audio_files))
     
     if nb_files is not None:
         audio_files=audio_files[:nb_files]
@@ -35,8 +34,8 @@ def preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=N
     
     for i,file in enumerate(tqdm(audio_files)):
             signal,_ = librosa.load(file,sr)
-            pitch_arr[i] = get_pitch(np.abs(signal)+1e-8,sr,frame_size).reshape(-1,1)
-            loudness_arr[i] = get_loudness(signal,sr,frame_size).reshape(-1,1)
+            pitch_arr[i] = get_pitch(signal,sr,frame_size).reshape(-1,1)
+            loudness_arr[i] = get_loudness(signal,sr,frame_size,n_fft=1024).reshape(-1,1)
             audio_arr[i] = signal.reshape(-1,frame_size)
             
         

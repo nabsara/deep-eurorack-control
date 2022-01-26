@@ -9,7 +9,6 @@ from deep_eurorack_control.models.ddsp.decoder import Decoder
 from deep_eurorack_control.models.ddsp.ops import *
 from deep_eurorack_control.helpers.ddsp import plot_metrics
 
-
 class DDSP:
     def __init__(self,sr,frame_size,n_harmonics,n_bands):
 
@@ -22,14 +21,22 @@ class DDSP:
         self.decoder = Decoder(self.n_harmonics,self.n_bands).to(settings.device)
         
         
-    def _init_optimizer(self, learning_rate,beta_1=0.9,beta_2=0.999):
+    def _init_optimizer(self, learning_rate):
         self._opt = torch.optim.Adam(
-            self.decoder.parameters(), lr=learning_rate, betas=(beta_1, beta_2)
-        )
+            self.decoder.parameters(), lr=learning_rate)
+        # schedule = self._init_schedule(learning_rate)
+        # self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
     
     def _compute_loss(self,signal_in,signal_out,alpha=1):
         loss_batch = spectral_loss(self.scales,signal_in,signal_out,alpha)
         return(torch.mean(loss_batch))
+    
+    def _init_schedule(self,learning_rate):
+        def schedule(epoch):
+          factors = [1,10]
+          i = min(len(factors)-1,epoch//50)
+          return 1/factors[i]
+        return schedule
     
     
     def train(self,dataloader,lr,n_epochs,display_step,logdir):
@@ -48,10 +55,10 @@ class DDSP:
         losses=[]
         display_loss = 0
         it_display = 0
-        
+        print(settings.device)
+
         it = 0  # number of batch iterations updated at the end of the dataloader for loop
         for epoch in range(n_epochs):
-            it=0
             for data in tqdm(dataloader):
                 pitch,loud,audio = data
                 pitch = pitch.to(settings.device)
@@ -73,7 +80,7 @@ class DDSP:
                 it+=1
                 
                 
-                if (it-1) % display_step == 0 or (it== len(dataloader) - 1):
+                if (it-1) % display_step == 0: #or (it== len(dataloader) - 1):
                     print(
                         f"\nEpoch: [{epoch}/{n_epochs}] \tStep: [{it}/{len(dataloader)}]"
                         f"\tTime: {time.time() - start} (s)\tLoss: {display_loss/it_display}"
@@ -89,15 +96,15 @@ class DDSP:
                     it_display = 0 
                     
                     with torch.no_grad():
-                        real_audio = signal_in[:4].detach().cpu()
-                        rec_audio = signal_out[:4].detach().cpu()
+                        real_audio = signal_in[:2].detach().cpu()
+                        rec_audio = signal_out[:2].detach().cpu()
                         rec_harmonics = harmonics.detach().cpu().numpy()
-
-                        pitchp = pitch[:4].detach().cpu().numpy()
-                        loudp  = loud[:4].detach().cpu().numpy() 
+                        rec_filters = filters.detach().cpu().numpy()
+                        pitchp = pitch[:2].detach().cpu().numpy()
+                        # loudp  = loud[:4].detach().cpu().numpy() 
 
                         for j in range(real_audio.shape[0]):
-                            figure = plot_metrics(pitchp[j],loudp[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],self.sr,self.frame_size)
+                            figure = plot_metrics(pitchp[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size)
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),
                                         rec_audio[j],
@@ -117,7 +124,7 @@ class DDSP:
                             figure,
                             global_step=epoch * len(dataloader) + it,
                             )   
-                        
+            # self.scheduler.step()            
             if epoch % 10 == 0 or epoch == n_epochs - 1 :                
                 torch.save(
                 {

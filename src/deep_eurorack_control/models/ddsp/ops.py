@@ -6,13 +6,13 @@ from deep_eurorack_control.config import settings
 
 def get_pitch(signal,sr,frame_size):
     step_size = int(1000*frame_size/sr)
-    pitch = crepe.predict(signal,sr,model_capacity = 'medium',viterbi=True,verbose=False,step_size=step_size)[1][:-1]
+    pitch = crepe.predict(signal,sr,viterbi=True,verbose=False,step_size=step_size)[1][:-1]
     return(pitch)
 
-def get_loudness(signal,sr,frame_size,n_fft=1024):
-    stft = librosa.stft(signal,hop_length=frame_size,n_fft=1024,win_length=1024)[:,:-1]
+def get_loudness(signal,sr,frame_size,n_fft):
+    stft = librosa.stft(signal,hop_length=frame_size,n_fft=n_fft,win_length=1024)[:,:-1]
     # freqs = np.linspace(0,sr/2,int(n_fft/2+1))
-    freqs = librosa.fft_frequencies(sr, n_fft=1024)
+    freqs = librosa.fft_frequencies(sr, n_fft=n_fft)
     freqs[0] += 1e-6
     a_weighting = librosa.A_weighting(freqs)
     stft_log = np.log(np.abs(stft)+1e-7) + a_weighting.reshape(-1,1)
@@ -29,13 +29,15 @@ def h_synth(f0,amps,sr):
 
 
 def noise_synth(H,frame_size):
+    H = torch.stack([H,torch.zeros_like(H)],-1)
+    H = torch.view_as_complex(H)
     h = torch.fft.irfft(H)
-    h = torch.roll(h,int(h.shape[-1]/2))
+    h = torch.roll(h,int(h.shape[-1]//2))
     size_dif = frame_size-h.shape[-1]
     h = torch.nn.functional.pad(h,(int(size_dif/2),int(size_dif/2)))
     w = torch.hann_window(frame_size).to(settings.device)
     h = w[None,None,:]*h
-    h = torch.roll(h,-int(h.shape[-1]/2))
+    h = torch.roll(h,-int(h.shape[-1]//2))
     H = torch.fft.rfft(h)
     
     noise =2*torch.rand(H.shape[0],H.shape[1],frame_size).to(settings.device)-1
@@ -49,14 +51,14 @@ def noise_synth(H,frame_size):
 def spectral_loss(scales,xin,xout,alpha=1):
     L_total = torch.zeros(xin.shape[0]).to(settings.device)
     for scale in scales:
-        stft_in = torch.abs(torch.stft(xin,n_fft = scale,return_complex=True)) 
-        stft_out = torch.abs(torch.stft(xout,n_fft = scale,return_complex=True))
-        L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2)) + torch.mean(torch.abs(torch.log(stft_in+1e-7) - torch.log(stft_out+1e-7)),dim=(1,2))
-        # L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in) - torch.log(stft_out) ,1,dim = (1,2))
+        stft_in =  torch.abs(  torch.stft(xin,n_fft = scale,return_complex=True,normalized=True,window=torch.hann_window(scale).to(xin)    )  ) 
+        stft_out = torch.abs(  torch.stft(xout,n_fft = scale,return_complex=True,normalized=True,window=torch.hann_window(scale).to(xout) )  )
+        # L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2)) + torch.mean(torch.abs(torch.log(stft_in+1e-5) - torch.log(stft_out+1e-5)),dim=(1,2))
+        L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in+1e-6) - torch.log(stft_out+1e-6) ,1,dim = (1,2))
     return(L_total)
 
 def upsample(array,n_final):
-    array_temp =  torch.nn.functional.interpolate(array.permute(0,2,1),n_final)
+    array_temp =  torch.nn.functional.interpolate(array.permute(0,2,1),n_final,mode='linear',align_corners=True)
     return(array_temp.permute(0,2,1))
 
 
@@ -65,7 +67,9 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     level = harmonics[:,:,:1]
     amps = level*amps/torch.sum(amps,axis=-1,keepdim=True)
 
-
+    freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
+    amps = amps*(freqs<sr/2)
+    
     len_signal = pitch.shape[1]*frame_size
     
     amps = upsample(amps,len_signal)
