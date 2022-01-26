@@ -9,7 +9,6 @@ from deep_eurorack_control.models.ddsp.ops import get_loudness,get_pitch
 
 
 def preprocess_dataset(raw_data_dir,dataset_dir,filter,sr,frame_size,nb_files=None):
-    # filters=['string_acoustic']
     files= os.listdir(raw_data_dir) 
     os.makedirs(dataset_dir,exist_ok=True)
     audio_files = []
@@ -18,9 +17,7 @@ def preprocess_dataset(raw_data_dir,dataset_dir,filter,sr,frame_size,nb_files=No
                 audio_files.append(os.path.join(raw_data_dir,file))
                 # break
     
-    
-    # print("heeloooooo",len(audio_files))
-    
+        
     if nb_files is not None:
         audio_files=audio_files[:nb_files]
     
