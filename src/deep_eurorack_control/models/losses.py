@@ -56,7 +56,7 @@ class HingeLoss(nn.Module):
         super().__init__()
 
     def forward(self, output, target):
-        return torch.mean(torch.maximum(1 - torch.mul(output, target), 0 * target), 0)
+        return torch.mean(torch.maximum(1 - torch.mul(output, target), 0 * target))
 
 
 class LinearLoss(nn.Module):
@@ -65,7 +65,7 @@ class LinearLoss(nn.Module):
         super().__init__()
 
     def forward(self, output, target):
-        return torch.mean(torch.mul(target, output), 0)
+        return torch.mean(torch.mul(target, output))
 
 
 class FeatureMatchingLoss(nn.Module):

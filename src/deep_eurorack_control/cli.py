@@ -90,6 +90,11 @@ def train_mnist_vae(
     default=500,
     help="Number of iterations between each training stats display",
 )
+@click.option(
+    "--n_epoch_warmup",
+    default=2,
+    help="Number of epoch for the first training stage representation learning"
+)
 def train_rave(
     data_dir,
     audio_dir,
@@ -98,6 +103,7 @@ def train_rave(
     n_epochs,
     learning_rate,
     display_step,
+    n_epoch_warmup,
 ):
     print(locals())
     pipeline = RAVEPipeline(
@@ -109,5 +115,6 @@ def train_rave(
     pipeline.train(
         learning_rate=learning_rate,
         n_epochs=n_epochs,
-        display_step=display_step
+        display_step=display_step,
+        n_epoch_warmup=n_epoch_warmup
     )

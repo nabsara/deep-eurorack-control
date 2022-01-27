@@ -11,31 +11,31 @@ class NLayerDiscriminator(nn.Module):
 
         # 1st conv layer 1 --> 16
         net.append(nn.Sequential(
-            weight_norm(nn.Conv1d(1, 16, kernel_size=15, stride=1)),
+            weight_norm(nn.Conv1d(1, 16, kernel_size=15, stride=1, padding=7)),
             nn.LeakyReLU(negative_slope=0.2)
         ))
 
         # 2-3-4-5 down sampling layer 16 --> 64 --> 256 --> 1024 --> 1024
         net.append(nn.Sequential(
-            weight_norm(nn.Conv1d(16, 64, kernel_size=41, stride=4, groups=4)),
+            weight_norm(nn.Conv1d(16, 64, kernel_size=41, stride=4, groups=4, padding=20)),
             nn.LeakyReLU(negative_slope=0.2),
-            weight_norm(nn.Conv1d(64, 256, kernel_size=41, stride=4, groups=16)),
+            weight_norm(nn.Conv1d(64, 256, kernel_size=41, stride=4, groups=16, padding=20)),
             nn.LeakyReLU(negative_slope=0.2),
-            weight_norm(nn.Conv1d(256, 1024,  kernel_size=41, stride=4, groups=64)),
+            weight_norm(nn.Conv1d(256, 1024,  kernel_size=41, stride=4, groups=64, padding=20)),
             nn.LeakyReLU(negative_slope=0.2),
-            weight_norm(nn.Conv1d(256, 1024, kernel_size=41, stride=4, groups=256)),
+            weight_norm(nn.Conv1d(1024, 1024, kernel_size=41, stride=4, groups=256, padding=20)),
             nn.LeakyReLU(negative_slope=0.2)
         ))
 
         # 6th conv layer 1024 --> 1024
         net.append(nn.Sequential(
-            weight_norm(nn.Conv1d(1024, 1024, kernel_size=5, stride=1)),
+            weight_norm(nn.Conv1d(1024, 1024, kernel_size=5, stride=1, padding=2)),
             nn.LeakyReLU(negative_slope=0.2)
         ))
 
         # 7th conv layer 1024 --> 1
         net.append(nn.Sequential(
-            weight_norm(nn.Conv1d(1024, 1, kernel_size=3, stride=1))
+            weight_norm(nn.Conv1d(1024, 1, kernel_size=3, stride=1, padding=1))
         ))
 
         self.net = net
@@ -77,7 +77,7 @@ class Discriminator(nn.Module):
         for i in range(self.n_disc):
             self.net.append(NLayerDiscriminator())
 
-        self.downsample = nn.AvgPool1d(4, stride=2)
+        self.downsample = nn.AvgPool1d(4, stride=2, padding=1)
 
         self.net.apply(initialize_weights)
 
