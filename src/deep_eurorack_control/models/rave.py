@@ -27,13 +27,13 @@ class RAVE:
             data_size=data_size,
             latent_dim=latent_dim,
             hidden_dim=hidden_dim
-        )
+        ).to(settings.device)
         self.decoder = Decoder(
             data_size=data_size,
             latent_dim=latent_dim,
             hidden_dim=hidden_dim
-        )
-        self.discriminator = Discriminator()
+        ).to(settings.device)
+        self.discriminator = Discriminator().to(settings.device)
 
         self.warmed_up = False
 
