@@ -4,6 +4,7 @@ import torch.distributions as distributions
 import numpy as np
 from tqdm import tqdm
 import time
+from torch.utils.tensorboard import SummaryWriter
 
 from deep_eurorack_control.config import settings
 from deep_eurorack_control.models.networks import Encoder, Decoder, Discriminator
@@ -192,6 +193,14 @@ class RAVE:
     def train(self, train_loader, valid_loader, lr, n_epochs, display_step, models_dir, model_filename, n_epoch_warmup):
         start = time.time()
 
+        # TENSORBOARD
+        writer = SummaryWriter(
+            os.path.join(
+                models_dir,
+                f"runs/exp__{model_filename}_{time.strftime('%Y_%m_%d_%H_%M_%S', time.gmtime())}",
+            )
+        )
+
         self._init_optimizer(lr)
         self._init_criterion()
 
@@ -230,6 +239,12 @@ class RAVE:
                     train_losses['epoch'].append(epoch)
                     for k, l in zip(list(cur_losses.keys()), losses_display):
                         train_losses[k].append(l / it_display)
+                        writer.add_scalar(
+                            f"training loss : {k}",
+                            l / it_display,
+                            epoch * len(train_loader) + cur_step,
+                        )
+
                     print(
                         f"\nEpoch: [{epoch}/{n_epochs}] \tStep: [{cur_step}/{len(train_loader)}]"
                         f"\tTime: {time.time() - start} (s) \tTotal_loss: {train_losses['loss_total_vae_gen'][-1]}"
