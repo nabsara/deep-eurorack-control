@@ -24,7 +24,7 @@ class DDSP:
     def _init_optimizer(self, learning_rate):
         self._opt = torch.optim.Adam(
             self.decoder.parameters(), lr=learning_rate)
-        schedule = self._init_schedule(learning_rate)
+        schedule = self._init_schedule()
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
     
     def _compute_loss(self,signal_in,signal_out,alpha=1):
