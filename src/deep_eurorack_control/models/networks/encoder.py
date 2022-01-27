@@ -48,7 +48,8 @@ class Encoder(nn.Module):
         #     )
 
         self.mean = nn.Sequential(
-            nn.Conv1d(2**len(ratios) * hidden_dim, latent_dim, 5, padding=2)
+            nn.Conv1d(2**len(ratios) * hidden_dim, latent_dim, 5, padding=2),
+            nn.ReLU()
         )
 
         self.var = nn.Sequential(
