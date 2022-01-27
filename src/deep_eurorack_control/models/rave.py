@@ -52,7 +52,7 @@ class RAVE:
     def sampling(x, mu, sigma):
         n_batch = x.shape[0]
         q = distributions.Normal(torch.zeros(mu.shape[1]), torch.ones(sigma.shape[1]))
-        epsilon = q.sample((int(n_batch),))
+        epsilon = q.sample((int(n_batch),)).to(settings.device)
         z = mu + sigma * epsilon.unsqueeze(2)
         return z
 
