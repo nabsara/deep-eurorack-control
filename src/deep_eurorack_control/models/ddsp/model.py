@@ -24,18 +24,17 @@ class DDSP:
     def _init_optimizer(self, learning_rate):
         self._opt = torch.optim.Adam(
             self.decoder.parameters(), lr=learning_rate)
-        # schedule = self._init_schedule(learning_rate)
-        # self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
+        schedule = self._init_schedule(learning_rate)
+        self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
     
     def _compute_loss(self,signal_in,signal_out,alpha=1):
         loss_batch = spectral_loss(self.scales,signal_in,signal_out,alpha)
         return(torch.mean(loss_batch))
     
-    def _init_schedule(self,learning_rate):
+    def _init_schedule(self):
         def schedule(epoch):
-          factors = [1,10]
-          i = min(len(factors)-1,epoch//50)
-          return 1/factors[i]
+          i = epoch//5
+          return 0.98**i 
         return schedule
     
     
@@ -124,7 +123,7 @@ class DDSP:
                             figure,
                             global_step=epoch * len(dataloader) + it,
                             )   
-            # self.scheduler.step()            
+            self.scheduler.step()            
             if epoch % 10 == 0 or epoch == n_epochs - 1 :                
                 torch.save(
                 {

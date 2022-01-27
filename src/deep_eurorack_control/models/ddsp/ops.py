@@ -53,8 +53,8 @@ def spectral_loss(scales,xin,xout,alpha=1):
     for scale in scales:
         stft_in =  torch.abs(  torch.stft(xin,n_fft = scale,return_complex=True,normalized=True,window=torch.hann_window(scale).to(xin)    )  ) 
         stft_out = torch.abs(  torch.stft(xout,n_fft = scale,return_complex=True,normalized=True,window=torch.hann_window(scale).to(xout) )  )
-        # L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2)) + torch.mean(torch.abs(torch.log(stft_in+1e-5) - torch.log(stft_out+1e-5)),dim=(1,2))
-        L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in+1e-6) - torch.log(stft_out+1e-6) ,1,dim = (1,2))
+        L_total += torch.mean(torch.abs(stft_in-stft_out),dim=(1,2)) + torch.mean(torch.abs(torch.log(stft_in+1e-5) - torch.log(stft_out+1e-5)),dim=(1,2))
+        # L_total += torch.norm(stft_in-stft_out,1,dim = (1,2)) + alpha*torch.norm(torch.log(stft_in+1e-6) - torch.log(stft_out+1e-6) ,1,dim = (1,2))
     return(L_total)
 
 def upsample(array,n_final):
@@ -67,8 +67,8 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     level = harmonics[:,:,:1]
     amps = level*amps/torch.sum(amps,axis=-1,keepdim=True)
 
-    freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
-    amps = amps*(freqs<sr/2)
+    # freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
+    # amps = amps*(freqs<sr/2)
     
     len_signal = pitch.shape[1]*frame_size
     

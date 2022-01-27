@@ -3,7 +3,7 @@ import os
 from deep_eurorack_control.helpers.utils import load_pickle
 from torch.utils.data import Dataset
 import torch
-# from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter
 
 
 class NSynth_ddsp(Dataset):
@@ -28,10 +28,10 @@ class NSynth_ddsp(Dataset):
 
     def __getitem__(self, index):
         
-        # pitch = self.p_arr[index]
-        # pitch = savgol_filter(pitch[:,0],51,3)
-        # pitch = pitch.reshape(-1,1)
-        pitch = torch.tensor(self.p_arr[index].copy()).float()
+        pitch = self.p_arr[index]
+        pitch = savgol_filter(pitch[:,0],51,3)
+        pitch = pitch.reshape(-1,1)
+        pitch = torch.tensor(pitch.copy()).float()
         loud = torch.tensor(self.l_arr[index].copy()).float()
         audio = torch.tensor(self.a_arr[index].copy()).float()
         return pitch,loud,audio
