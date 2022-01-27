@@ -6,13 +6,20 @@ import time
 
 from deep_eurorack_control.config import settings
 from deep_eurorack_control.models.networks import Encoder, Decoder, Discriminator
+from deep_eurorack_control.models.networks.pqmf import PQMF
+from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeLoss, FeatureMatchingLoss
 
 
 class RAVE:
 
-    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=48000):
+    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, n_taps=8, sampling_rate=48000):
 
-        self.multi_band_decomposition = None  # PQMF
+        self.model_name = "n_synth_rave"
+        self.multi_band_decomposition = PQMF(
+            n_band=n_band,
+            n_taps=n_taps,
+            sampling_rate=sampling_rate
+        )
 
         data_size = n_band
         self.encoder = Encoder(
@@ -35,14 +42,17 @@ class RAVE:
         self.disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(beta_1, beta_2))
 
     def _init_criterion(self):
-        pass
+        self.spectral_dist_criterion = SpectralLoss()
+        self.disc_criterion = HingeLoss()
+        self.gen_criterion = LinearLoss()
+        self.feat_matching_criterion = FeatureMatchingLoss()
 
     @staticmethod
     def sampling(x, mu, sigma):
         n_batch = x.shape[0]
         q = distributions.Normal(torch.zeros(mu.shape[1]), torch.ones(sigma.shape[1]))
         epsilon = q.sample((int(n_batch),))
-        z = mu + sigma * epsilon
+        z = mu + sigma * epsilon.unsqueeze(2)
         return z
 
     @staticmethod
@@ -51,47 +61,13 @@ class RAVE:
         kl_div = 0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma))
         return kl_div / n_batch
 
-    @staticmethod
-    def multiscale_stft(signal, scales, overlap):
-        stfts = []
-        for n in scales:
-            s = torch.stft(
-                input=signal,
-                n_fft=n,
-                hop_length=int(n * (1 - overlap)),
-                win_length=n,
-                window=torch.hann_window(n).to(signal),
-                center=True,
-                normalized=True,
-                return_complex=True
-            ).abs()
-            stfts.append(s)
-        return stfts
-
-    @staticmethod
-    def lin_distance(x, y):
-        return torch.norm(x - y) / torch.norm(x)
-
-    @staticmethod
-    def log_distance(x, y):
-        return abs(torch.log(x + 1e-7) - torch.log(y + 1.e-7)).mean()
-
-    def multiscale_spectral_distance(self, x, y):
-        scales = [2048, 1024, 512, 256, 128]
-        x = self.multiscale_stft(x, scales, 0.75)
-        y = self.multiscale_stft(y, scales, 0.75)
-
-        lin = sum(list(map(self.lin_distance, x, y)))
-        log = sum(list(map(self.log_distance, x, y)))
-
-        return lin + log
-
-    def train_step(self, data_current_batch, step, beta=0.1):
+    def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
         """Inside a Batch"""
         # STEP 1:
         x = data_current_batch.to(settings.device)
+        x = torch.reshape(x, (x.shape[0], 1, -1))
         # multi band decomposition pqmf
-        # TODO
+        #x = self.multi_band_decomposition(x)
 
         # Encode data
         # if train step 1 repr learning encoder.train()
@@ -111,16 +87,18 @@ class RAVE:
             kl_loss = kl_loss.detach()
 
         # Decode latent space samples
-        x_pred = self.decoder(z)
+        y = self.decoder(z)
 
         # compute reconstruction loss ie. multiscale spectral distance
-        spectral_loss = self.multiscale_spectral_distance(x, x_pred)
+        # spectral_loss = self.multiscale_spectral_distance(x, y)
+        spectral_loss = self.spectral_dist_criterion(x, y)
         # total loss
         loss_vae = torch.mean(spectral_loss - beta * kl_loss)
 
-        # inverse multi band decomposition (pqmf -1)
-        # TODO
-        y = None
+        # inverse multi band decomposition (pqmf -1) --> recomposition
+        #x = self.multi_band_decomposition.inverse(x)
+        #y = self.multi_band_decomposition.inverse(x_pred)
+        #spectral_loss += self.multiscale_spectral_distance(x, y)  # WHY ???
 
         # STEP 2:
         loss_feature_matching_distance = 0
@@ -131,7 +109,17 @@ class RAVE:
             real_features = self.discriminator(x)
             fake_features = self.discriminator(y)
 
-            # TODO: Compute Hinge loss
+            for feat_real, feat_fake in zip(real_features, fake_features):
+                # Compute Feature matching distance
+                loss_feature_matching_distance += lambda_fm * self.feat_matching_criterion(feat_real, feat_fake).item()
+
+                # Compute Hinge loss
+                current_disc_fake_loss = self.disc_criterion(feat_fake[-1], -torch.ones_like(feat_fake[-1]))
+                current_disc_real_loss = self.disc_criterion(feat_real[-1], torch.ones_like(feat_real[-1]))
+                current_disc_loss = (current_disc_fake_loss + current_disc_real_loss) / 2
+                loss_disc += current_disc_loss.item()
+                current_gen_loss = self.gen_criterion(feat_fake[-1], -torch.ones_like(feat_fake[-1]))
+                loss_adv += current_gen_loss.item()
 
         # FINALLY:
         # compute vae (decoder-generator) loss
@@ -184,7 +172,8 @@ class RAVE:
             it_display = 0
             loss_display = 0
             for x, _ in tqdm(train_loader):
-                self.train_step(x)
+                step = len(train_loader) * epoch + cur_step
+                self.train_step(x, step)
 
                 loss = 1  # TODO: retrieve losses from train_step()
 

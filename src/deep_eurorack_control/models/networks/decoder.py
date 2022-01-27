@@ -10,7 +10,7 @@ class ResnetBlock(nn.Module):
             nn.LeakyReLU(negative_slope=0.2),
             weight_norm(nn.Conv1d(dim, dim, kernel_size=3, dilation=dilation)),
             nn.LeakyReLU(negative_slope=0.2),
-            weight_norm(nn.Conv1d(dim, dim, kernel_size=3, dilation=1))
+            weight_norm(nn.Conv1d(dim, dim, kernel_size=3, dilation=1, padding=dilation+1))
         )
 
         self.shortcut = weight_norm(nn.Conv1d(dim, dim, kernel_size=1))
@@ -29,17 +29,17 @@ class ResidualStack(nn.Module):
         self.net = nn.Sequential(*blocks)
 
     def forward(self, x):
-        self.net(x)
+        return self.net(x)
 
 
 class UpSamplingLayer(nn.Module):
 
-    def __init__(self, in_dim, out_dim, kernel_size, stride):
+    def __init__(self, in_dim, out_dim, kernel_size, stride, padding, out_pad=0):
         super(UpSamplingLayer, self).__init__()
 
         self.net = nn.Sequential(
             nn.LeakyReLU(negative_slope=0.2),
-            weight_norm(nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride=stride))
+            weight_norm(nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride=stride, padding=padding, output_padding=out_pad))
         )
 
     def forward(self, x):
@@ -81,7 +81,7 @@ class Decoder(nn.Module):
 
         # 1st conv layer
         net = [nn.Sequential(
-            weight_norm(nn.Conv1d(latent_dim, 2**len(ratios) * hidden_dim, 7, stride=1))
+            weight_norm(nn.Conv1d(latent_dim, 2**len(ratios) * hidden_dim, 7, stride=1, padding=3))
         )]
 
         # 4x : upsampling (LeakyReLU and convTransposed)
@@ -92,7 +92,9 @@ class Decoder(nn.Module):
                     in_dim=2**(len(ratios) - i) * hidden_dim,
                     out_dim=2**(len(ratios) - (i + 1)) * hidden_dim,
                     kernel_size=2 * r + 1,
-                    stride=r
+                    stride=r,
+                    padding=r - 1,
+                    out_pad=1
                 ),
                 ResidualStack(dim=2**(len(ratios) - (i + 1)) * hidden_dim)
             ))
@@ -102,17 +104,57 @@ class Decoder(nn.Module):
         # layers and residual networks but instead of directly
         # outputting the raw waveform we feed the last hidden
         # layer to three sub-networks.
-        self.net = nn.Sequential(*net)
+        #self.net = nn.Sequential(*net)
+
+        self.conv1 = weight_norm(nn.Conv1d(latent_dim, 2**len(ratios) * hidden_dim, 7, stride=1, padding=3))
+        self.up1 = UpSamplingLayer(
+                    in_dim=2**(len(ratios) - 0) * hidden_dim,
+                    out_dim=2**(len(ratios) - (0 + 1)) * hidden_dim,
+                    kernel_size=2 * 4 + 1,
+                    stride=4,
+                    padding=3,
+                    out_pad=1,
+                )
+        self.res1 = ResidualStack(dim=2**(len(ratios) - (0 + 1)) * hidden_dim)
+        self.up2 = UpSamplingLayer(
+                    in_dim=2**(len(ratios) - 1) * hidden_dim,
+                    out_dim=2**(len(ratios) - (1 + 1)) * hidden_dim,
+                    kernel_size=2 * 4 + 1,
+                    stride=4,
+                    padding=3,
+                    out_pad=1,
+                )
+        self.res2 = ResidualStack(dim=2**(len(ratios) - (1 + 1)) * hidden_dim)
+        self.up3 = UpSamplingLayer(
+                    in_dim=2**(len(ratios) - 2) * hidden_dim,
+                    out_dim=2**(len(ratios) - (2 + 1)) * hidden_dim,
+                    kernel_size=2 * 4 + 1,
+                    stride=4,
+                    padding=3,
+                    out_pad=1,
+                )
+        self.res3 = ResidualStack(dim=2**(len(ratios) - (2 + 1)) * hidden_dim)
+        self.up4 = UpSamplingLayer(
+                    in_dim=2**(len(ratios) - 3) * hidden_dim,
+                    out_dim=2**(len(ratios) - (3 + 1)) * hidden_dim,
+                    kernel_size=2 * 2 + 1,
+                    stride=2,
+                    padding=2,
+                    out_pad=1
+                )
+        self.res4 = ResidualStack(dim=2**(len(ratios) - (3 + 1)) * hidden_dim)
+
+
         # 1st subnetwork (waveform) synthesizes a multiband
         # audio signal (with tanh activation)
         self.waveform = nn.Sequential(
-            weight_norm(nn.Conv1d(hidden_dim, data_size, 7)),
+            weight_norm(nn.Conv1d(hidden_dim, data_size, 7, padding=3)),
             nn.Tanh()
         )
         # 2nd sub-network (loudness), generating an amplitude
         # envelope (with sigmoid activation)
         self.loudness = nn.Sequential(
-            weight_norm(nn.Conv1d(hidden_dim, 1, 3, stride=1)),
+            weight_norm(nn.Conv1d(hidden_dim, 1, 3, stride=1, padding=1)),
             nn.Sigmoid()
         )
         # 3rd sub-network noise synthesizer (proposed in
@@ -126,7 +168,17 @@ class Decoder(nn.Module):
         # )
 
     def forward(self, x):
-        x_dec = self.net(x)
+        #x_dec = self.net(x)
+        x = self.conv1(x)
+        x = self.up1(x)
+        x = self.res1(x)
+        x = self.up2(x)
+        x = self.res2(x)
+        x = self.up3(x)
+        x = self.res3(x)
+        x = self.up4(x)
+        x_dec = self.res4(x)
+
         waveform = self.waveform(x_dec)
         loudness = self.loudness(x_dec)
         output = waveform * loudness

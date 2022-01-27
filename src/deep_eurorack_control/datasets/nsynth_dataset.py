@@ -2,6 +2,7 @@ import os
 import json
 import scipy.io.wavfile
 from torch.utils.data import Dataset
+import numpy as np
 
 
 class NSynthDataset(Dataset):
@@ -20,6 +21,7 @@ class NSynthDataset(Dataset):
     def __getitem__(self, index):
         audio_file = os.path.join(self.audio_dir, f"{self.audio_name_list[index]}.wav")
         sr, audio = scipy.io.wavfile.read(audio_file)
+        audio = audio.astype(np.float32)
         if self.transform:
             audio = self.transform(audio)
         pitch = self.audio_labels[self.audio_name_list[index]]['pitch']
