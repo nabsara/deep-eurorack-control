@@ -70,15 +70,15 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
     default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\nsynth-train\audio",
     help="Raw Dataset location(if preprocess==True)",
 )
-# @click.option(
-#     "--nb_files",
-#     default=None,
-#     help="Raw Dataset location(if preprocess==True)",
-# )
-def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir):
+@click.option(
+    "--alpha",
+    default=0.98,
+    help="Learning rate decay",
+)
+def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha):
     if preprocess==True:
         preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=None)
     pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands)   
-    pipeline.train(lr,batch_size,n_epochs,display_step,logdir)
+    pipeline.train(lr,batch_size,n_epochs,display_step,logdir,alpha)
     
     

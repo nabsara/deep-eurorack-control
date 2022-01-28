@@ -21,25 +21,26 @@ class DDSP:
         self.decoder = Decoder(self.n_harmonics,self.n_bands).to(settings.device)
         
         
-    def _init_optimizer(self, learning_rate):
+    def _init_optimizer(self, learning_rate,alpha):
         self._opt = torch.optim.Adam(
             self.decoder.parameters(), lr=learning_rate)
-        schedule = self._init_schedule()
+        schedule = self._init_schedule(alpha)
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
     
     def _compute_loss(self,signal_in,signal_out,alpha=1):
         loss_batch = spectral_loss(self.scales,signal_in,signal_out,alpha)
         return(torch.mean(loss_batch))
     
-    def _init_schedule(self):
+    def _init_schedule(self,alpha):
         def schedule(epoch):
           i = epoch//5
-          return 0.98**i 
+          print(alpha**i)
+          return (alpha**i) 
         return schedule
     
     
-    def train(self,dataloader,lr,n_epochs,display_step,logdir):
-        self._init_optimizer(lr)
+    def train(self,dataloader,lr,n_epochs,display_step,logdir,alpha=0.98):
+        self._init_optimizer(lr,alpha)
                 
         start = time.time()
     

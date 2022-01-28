@@ -115,7 +115,7 @@ def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size):
     
     
     times = np.linspace(0,pitch.shape[0]*frame_size/sr,pitch.shape[0])
-    ax_pitch.plot(times,pitch,color='k',linewidth = 0.75,label='Target')
+    ax_pitch.plot(times,pitch,color='k',linewidth = 0.5,label='Target')
     
     ax_loud.plot(times,loud_out,label='Reconstructed')
     ax_loud.plot(times,loud,color='k',linestyle='--',label='Target')

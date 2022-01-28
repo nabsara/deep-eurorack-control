@@ -20,7 +20,7 @@ class DDSP_Pipeline:
         self.dataset = NSynth_ddsp(dataset_dir)
 
         
-    def train(self,lr,batch_size,n_epochs,display_step,logdir):
+    def train(self,lr,batch_size,n_epochs,display_step,logdir,alpha):
         dataloader = DataLoader(self.dataset,batch_size=batch_size, shuffle=True)
-        self.model.train(dataloader,lr,n_epochs,display_step,logdir)
+        self.model.train(dataloader,lr,n_epochs,display_step,logdir,alpha)
         

@@ -67,8 +67,8 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     level = harmonics[:,:,:1]
     amps = level*amps/torch.sum(amps,axis=-1,keepdim=True)
 
-    # freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
-    # amps = amps*(freqs<sr/2)
+    freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
+    amps = amps*(freqs<sr/2)
     
     len_signal = pitch.shape[1]*frame_size
     
