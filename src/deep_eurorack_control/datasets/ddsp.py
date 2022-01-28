@@ -29,7 +29,7 @@ class NSynth_ddsp(Dataset):
     def __getitem__(self, index):
         
         pitch = self.p_arr[index]
-        pitch = savgol_filter(pitch[:,0],51,1)
+        pitch = savgol_filter(pitch[:,0],7,1)
         pitch = pitch.reshape(-1,1)
         pitch = torch.tensor(pitch.copy()).float()
         loud = torch.tensor(self.l_arr[index].copy()).float()
