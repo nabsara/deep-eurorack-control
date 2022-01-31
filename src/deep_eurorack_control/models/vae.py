@@ -4,6 +4,9 @@ import torch
 import torch.nn as nn
 import torch.distributions as distributions
 from torchvision.utils import make_grid
+#fix: distutils has no attribute version
+#see: https://github.com/pytorch/pytorch/issues/69894
+import distutils.version
 from torch.utils.tensorboard import SummaryWriter
 
 import matplotlib.pyplot as plt
@@ -75,7 +78,8 @@ class LinearVAE(nn.Module):
     @staticmethod
     def kl_div_loss(x, mu, sigma):
         n_batch = x.shape[0]
-        kl_div = 0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma))
+        # kl_div = 0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma))
+        kl_div = 0.5 * torch.sum(1 - sigma - torch.pow(mu, 2) + torch.log(sigma))
         return kl_div / n_batch
 
     def forward(self, x):
