@@ -58,7 +58,7 @@ def spectral_loss(scales,xin,xout,alpha=1):
     return(L_total)
 
 def upsample(array,n_final):
-    array_temp =  torch.nn.functional.interpolate(array.permute(0,2,1),n_final,mode='linear',align_corners=True)
+    array_temp =  torch.nn.functional.interpolate(array.permute(0,2,1),n_final,align_corners=True)
     return(array_temp.permute(0,2,1))
 
 
