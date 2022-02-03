@@ -180,7 +180,7 @@ class RAVE:
         # 3. get latent space samples
         z = self.sampling(x, mean, var)
         # compute regularization loss
-        kl_loss = self.kl_div_loss(x, mean, var)
+        kl_loss = self.kl_div_loss(mean, var)
 
         # 4. Decode latent space samples
         y = self.decoder(z)
