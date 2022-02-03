@@ -65,6 +65,15 @@ class RAVE:
         kl_div = torch.mean(-0.5 * torch.sum(1 - sigma - torch.pow(mu, 2) + torch.log(sigma), dim=1))
         return kl_div
 
+    def reparametrize(self, mean, scale):
+        std = torch.nn.functional.softplus(scale) + 1e-4
+        var = std * std
+        logvar = torch.log(var)
+
+        z = torch.randn_like(mean) * std + mean
+        kl = (mean * mean + var - logvar - 1).sum(1).mean()
+        return z, kl
+
     def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
         """Inside a Batch"""
         # STEP 1:
@@ -84,9 +93,10 @@ class RAVE:
         mean, var = self.encoder(x)
 
         # get latent space samples
-        z = self.sampling(x, mean, var)
+        #z = self.sampling(x, mean, var)
         # compute regularization loss
-        kl_loss = self.kl_div_loss(mean, var)
+        #kl_loss = self.kl_div_loss(mean, var)
+        z, kl_loss = self.reparametrize(mean, var)
         if self.warmed_up:
             z = z.detach()
             kl_loss = kl_loss.detach()
@@ -178,9 +188,10 @@ class RAVE:
         mean, var = self.encoder(x)
 
         # 3. get latent space samples
-        z = self.sampling(x, mean, var)
+        #z = self.sampling(x, mean, var)
         # compute regularization loss
-        kl_loss = self.kl_div_loss(mean, var)
+        #kl_loss = self.kl_div_loss(mean, var)
+        z, kl_loss = self.reparametrize(mean, var)
 
         # 4. Decode latent space samples
         y = self.decoder(z)
