@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from deep_eurorack_control.config import settings
 from deep_eurorack_control.models.networks import Encoder, Decoder, Discriminator
-from deep_eurorack_control.models.networks.pqmf import PQMF
+from deep_eurorack_control.models.networks.pqmf_antoine import PQMF
 from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeLoss, FeatureMatchingLoss
 
 
@@ -17,10 +17,15 @@ class RAVE:
     def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, n_taps=8, sampling_rate=48000):
 
         self.model_name = "n_synth_rave"
+        #self.multi_band_decomposition = PQMF(
+        #    n_band=n_band,
+        #    n_taps=n_taps,
+        #    sampling_rate=sampling_rate
+        #)
         self.multi_band_decomposition = PQMF(
+            attenuation=100,
             n_band=n_band,
-            n_taps=n_taps,
-            sampling_rate=sampling_rate
+            polyphase=False
         )
 
         data_size = n_band
@@ -80,7 +85,7 @@ class RAVE:
         x = data_current_batch.to(settings.device)
         x = torch.reshape(x, (x.shape[0], 1, -1))
         # multi band decomposition pqmf
-        #x = self.multi_band_decomposition(x)
+        x = self.multi_band_decomposition(x)
 
         # Encode data
         # if train step 1 repr learning encoder.train()
@@ -110,9 +115,9 @@ class RAVE:
         loss_vae = torch.mean(spectral_loss + beta * kl_loss)
 
         # inverse multi band decomposition (pqmf -1) --> recomposition
-        #x = self.multi_band_decomposition.inverse(x)
-        #y = self.multi_band_decomposition.inverse(x_pred)
-        #spectral_loss += self.multiscale_spectral_distance(x, y)  # WHY ???
+        x = self.multi_band_decomposition.inverse(x)
+        y = self.multi_band_decomposition.inverse(y)
+        spectral_loss += self.spectral_dist_criterion(x, y)  # WHY ???
 
         # STEP 2:
         if self.warmed_up:
@@ -182,7 +187,7 @@ class RAVE:
         x = data_current_batch.to(settings.device)
         x = torch.reshape(x, (x.shape[0], 1, -1))
         # 1. multi band decomposition pqmf
-        # x = self.multi_band_decomposition(x)
+        x = self.multi_band_decomposition(x)
 
         # 2. Encode data
         mean, var = self.encoder(x)
@@ -197,11 +202,13 @@ class RAVE:
         y = self.decoder(z)
 
         # 5. inverse multi band decomposition (pqmf -1) --> recomposition
+        x = self.multi_band_decomposition.inverse(x)
+        y = self.multi_band_decomposition.inverse(y)
 
         # 6. compute reconstruction loss ie. multiscale spectral distance
         spectral_distance = torch.mean(self.spectral_dist_criterion(x, y) + beta * kl_loss)
 
-        return spectral_distance
+        return y, spectral_distance
 
     def train(self, train_loader, valid_loader, lr, n_epochs, display_step, models_dir, model_filename, n_epoch_warmup):
         start = time.time()
@@ -270,7 +277,7 @@ class RAVE:
             with torch.no_grad():
                 for x, _ in tqdm(valid_loader):
                     x = x.to(settings.device)
-                    loss = self.validation_step(x)
+                    y, loss = self.validation_step(x)
 
                     valid_loss_display += loss.item()
                     it_display += 1
@@ -278,7 +285,19 @@ class RAVE:
                     f"\nEpoch: [{epoch}/{n_epochs}] \t Validation loss: {valid_loss_display / it_display}"
                 )
                 valid_loss.append(valid_loss_display / it_display)
-
+                for j in range(x.shape[0]):
+                    writer.add_audio(
+                        "generated_sound/" + str(j),
+                        y,
+                        global_step=epoch * len(valid_loader) + cur_step,
+                        sample_rate=16000,
+                    )
+                    writer.add_audio(
+                        "ground_truth_sound/" + str(j),
+                        x,
+                        global_step=epoch * len(valid_loader) + cur_step,
+                        sample_rate=16000,
+                    )
             # model checkpoints:
             if epoch % 10 == 0 or epoch == n_epochs - 1:
                 torch.save(

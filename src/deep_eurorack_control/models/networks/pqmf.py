@@ -3,16 +3,20 @@ import numpy as np
 
 
 # prototype filter of length M through Kaiser window approach
-def prototype_filter(proto_len, cutoff, len_filter):
-    len_range = np.arange(proto_len)
+def prototype_filter(len_filter, cutoff):
+    """
+    use impulse response of the ideal low-pass filter with cutoff frequency
+    and then use window method to get finite impulse response filter
+    """
+    len_range = np.arange(len_filter)
 
     # choice of Kaiser window
     beta = 14  # parameter of the Kaiser window
     w = np.kaiser(len_filter, beta)
 
-    v = np.divide(np.sin(cutoff * (len_range - 0.5 * proto_len)), np.pi * (len_range - 0.5 * proto_len))
-    if proto_len % 2 == 0:
-        v[int(proto_len / 2)] = cutoff / np.pi
+    v = np.divide(np.sin(cutoff * (len_range - 0.5 * len_filter)), np.pi * (len_range - 0.5 * len_filter))
+    if len_filter % 2 == 0:
+        v[int(len_filter / 2)] = cutoff / np.pi
 
     f = np.multiply(v, w)  # filter
     return f
@@ -49,9 +53,11 @@ class PQMF(nn.Module):
     def _compute_analysis_and_synthesis_filers(self):
         # analysis and synthesis filters
         h_analysis = np.zeros((self.n_band, self.len_filter))
-        h_analysis[0] = prototype_filter(self.len_filter, self.cutoff_freq, self.len_filter)
+        h_analysis[0] = prototype_filter(self.len_filter, self.cutoff_freq)
         h_synthesis = np.zeros((self.n_band, self.len_filter))
-        h_synthesis[0] = h_analysis[0][::-1]
+        h_synthesis[0] = h_analysis[0][::-1]  # same as analysis filter but reverse in time
+        # since it is an orthogonal filter bank by construction the synthesis filters
+        # are simply the time-reverse of the analysis filter
 
         scale = np.arange(self.len_filter)
 
@@ -66,10 +72,18 @@ class PQMF(nn.Module):
 
     def forward(self, x):
         # pqmf analysis
-        decomposition = np.zeros((self.n_band, len(x)))
+        # (n_band, len_signal)
+        decomposition = np.zeros((self.n_band, x.shape[-1]))
 
-        for k in np.arange(self.n_band):
-            decomposition[k] = conv(x, self.h_analysis[k])
+        decomposition = nn.functional.conv1d(
+            x,
+            self.h_analysis.unsqueeze(1),
+            stride=self.h_analysis.shape[0],
+            padding=self.h_analysis.shape[-1] // 2,
+        )[..., :-1]
+        # for k in np.arange(self.n_band):
+            # decomposition[k] = conv(x, self.h_analysis[k])
+
 
         return decomposition
 
