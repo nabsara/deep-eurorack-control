@@ -239,7 +239,7 @@ class RAVE:
         valid_loss = []
         it = 0  # number of batch iterations updated at the end of the DataLoader for loop
         for epoch in range(n_epochs):
-            if n_epoch_warmup:
+            if epoch == n_epoch_warmup:
                 self.warmed_up = True
             cur_step = 0
             it_display = 0
