@@ -60,9 +60,9 @@ class RAVE:
         return z
 
     @staticmethod
-    def kl_div_loss(x, mu, sigma):
-        n_batch = x.shape[0]
-        kl_div = torch.mean(-0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma), dim=1))
+    def kl_div_loss(mu, sigma):
+        # kl_div = torch.mean(-0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma), dim=1))
+        kl_div = torch.mean(-0.5 * torch.sum(1 - sigma - torch.pow(mu, 2) + torch.log(sigma), dim=1))
         return kl_div
 
     def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
@@ -86,7 +86,7 @@ class RAVE:
         # get latent space samples
         z = self.sampling(x, mean, var)
         # compute regularization loss
-        kl_loss = self.kl_div_loss(x, mean, var)
+        kl_loss = self.kl_div_loss(mean, var)
         if self.warmed_up:
             z = z.detach()
             kl_loss = kl_loss.detach()
