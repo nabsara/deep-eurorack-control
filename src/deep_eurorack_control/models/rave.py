@@ -107,7 +107,7 @@ class RAVE:
         # compute reconstruction loss ie. multiscale spectral distance
         spectral_loss = self.spectral_dist_criterion(x, y)
         # total loss
-        loss_vae = torch.mean(spectral_loss - beta * kl_loss)
+        loss_vae = torch.mean(spectral_loss + beta * kl_loss)
 
         # inverse multi band decomposition (pqmf -1) --> recomposition
         #x = self.multi_band_decomposition.inverse(x)
