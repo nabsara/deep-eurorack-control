@@ -62,7 +62,7 @@ class RAVE:
     @staticmethod
     def kl_div_loss(x, mu, sigma):
         n_batch = x.shape[0]
-        kl_div = torch.mean(-0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma), dim=1), dim=0)
+        kl_div = torch.mean(-0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma), dim=1))
         return kl_div
 
     def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
