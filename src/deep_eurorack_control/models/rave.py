@@ -54,14 +54,16 @@ class RAVE:
         n_batch = x.shape[0]
         q = distributions.Normal(torch.zeros(mu.shape[1]), torch.ones(sigma.shape[1]))
         epsilon = q.sample((int(n_batch),)).to(settings.device)
+        # TODO: test
+        # epsilon = torch.randn_like(mu)
         z = mu + sigma * epsilon.unsqueeze(2)
         return z
 
     @staticmethod
     def kl_div_loss(x, mu, sigma):
         n_batch = x.shape[0]
-        kl_div = 0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma))
-        return kl_div / n_batch
+        kl_div = torch.mean(-0.5 * torch.sum(1 + sigma - torch.pow(mu, 2) - torch.exp(sigma), dim=1), dim=0)
+        return kl_div
 
     def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
         """Inside a Batch"""
