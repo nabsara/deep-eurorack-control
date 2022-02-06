@@ -92,7 +92,7 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     
     len_signal = pitch.shape[1]*frame_size
     
-    amps = upsample(amps,int(len_signal/frame_size*4))
+    amps = upsample(amps,len_signal)
     
     amps = smooth(amps,frame_size,len_signal)
     
