@@ -86,9 +86,9 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     
     len_signal = pitch.shape[1]*frame_size
     
-    amps = upsample(amps,len_signal,type='nearest')
+    amps = upsample(amps,len_signal)
     amps = smooth(amps,frame_size)
-    f0  =  upsample(pitch,len_signal,type='linear')
+    f0  =  upsample(pitch,len_signal)
 
     signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
     return(signal)
