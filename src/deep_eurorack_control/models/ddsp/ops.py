@@ -70,7 +70,7 @@ def smooth(params,frame_size,final_size):
 
     temp = params.permute(0,2,1)
 
-    window = torch.hann_window(winlen)
+    window = torch.hann_window(winlen).to(settings.device)
     window = window/(window[0] + window[int(winlen/2)])
 
 
