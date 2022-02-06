@@ -61,6 +61,20 @@ def upsample(array,n_final):
     array_temp =  torch.nn.functional.interpolate(array.permute(0,2,1),n_final)
     return(array_temp.permute(0,2,1))
 
+def smooth(params,frame_size):
+    temp = params.permute(0,2,1)
+    temp_smooth = torch.zeros_like(temp).to(settings.device)
+    hop = int(frame_size/4)
+    winlen = int(frame_size/2)
+    nb_trames = int(temp.shape[-1]/hop)
+    window = torch.hann_window(winlen).to(settings.device)
+    window = window/(window[0] + window[int(winlen/2)])
+    for j in range(nb_trames-1):
+        start = j*hop
+        stop = start + winlen
+        temp_smooth[:,:,start:stop] += window[None,None,:]*temp[:,:,int(start+winlen/2)][:,:,None]
+    return (temp_smooth.permute(0,2,1))
+
 
 def generate_signal(pitch,harmonics,filters,frame_size,sr):
     amps = harmonics[:,:,1:]
@@ -72,8 +86,9 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     
     len_signal = pitch.shape[1]*frame_size
     
-    amps = upsample(amps,len_signal)
-    f0  =  upsample(pitch,len_signal)
+    amps = upsample(amps,len_signal,type='nearest')
+    amps = smooth(amps,frame_size)
+    f0  =  upsample(pitch,len_signal,type='linear')
 
     signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
     return(signal)
