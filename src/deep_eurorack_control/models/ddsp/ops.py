@@ -69,6 +69,7 @@ def smooth(params,frame_size):
     nb_trames = int(temp.shape[-1]/hop)
     window = torch.hann_window(winlen).to(settings.device)
     window = window/(window[0] + window[int(winlen/2)])
+    
     for j in range(nb_trames-1):
         start = j*hop
         stop = start + winlen
@@ -87,7 +88,7 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     len_signal = pitch.shape[1]*frame_size
     
     amps = upsample(amps,len_signal)
-    amps = smooth(amps,frame_size)
+    # amps = smooth(amps,frame_size)
     f0  =  upsample(pitch,len_signal)
 
     signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
