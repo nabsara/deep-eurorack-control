@@ -62,22 +62,24 @@ def upsample(array,n_final):
     return(array_temp.permute(0,2,1))
 
 def smooth(params,frame_size,final_size):
-    temp = params.permute(0,2,1)
-    temp_smooth = torch.zeros(temp.shape[0],temp.shape[1],final_size).to(settings.device)
-
     hop = int(frame_size/4)
     winlen = int(frame_size/2)
-    nb_trames = int(final_size/hop)
-   
-    window = torch.hann_window(winlen).to(settings.device)
+    
+    batch_size = params.shape[0]
+    nb_features = params.shape[-1]
+
+    temp = params.permute(0,2,1)
+
+    window = torch.hann_window(winlen)
     window = window/(window[0] + window[int(winlen/2)])
 
-    for j in range(nb_trames-1):
-        start = j*hop
-        stop = start + winlen
-        temp_smooth[:,:,start:stop] += window[None,None,:]*(temp[:,:,j+1][:,:,None])
+
+    temp = temp.unfold(-1,winlen,hop)[:,:,:,int(winlen/2)][:,:,:,None]*window[None,None,None,:]
+    temp =temp.reshape(int(nb_features*batch_size),-1,winlen).permute(0,2,1)
+
+    temp = torch.nn.functional.fold(temp,output_size=(1,final_size),kernel_size=(1,winlen),stride=(1,hop)).squeeze().reshape(batch_size,-1,64000)
+    return(temp.permute(0,2,1))
     
-    return (temp_smooth.permute(0,2,1))
 
 
 def generate_signal(pitch,harmonics,filters,frame_size,sr):
