@@ -54,7 +54,7 @@ class NoiseSynthesizer(nn.Module):
     def __init__(self, in_dim, out_dim, ratios, noise_bands):
         super(NoiseSynthesizer, self).__init__()
         self.data_size = out_dim
-        self.target_size = torch.tensor(np.prod(ratios)).long(),
+        self.target_size = np.prod(ratios)
         net = []
 
         for i in range(len(ratios) - 1):
