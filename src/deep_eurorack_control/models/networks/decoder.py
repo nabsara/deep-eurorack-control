@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
+import numpy as np
 from deep_eurorack_control.models.networks.utils import mod_sigmoid, amp_to_impulse_response, fft_convolve
 
 
@@ -52,7 +53,8 @@ class NoiseSynthesizer(nn.Module):
 
     def __init__(self, in_dim, out_dim, ratios, noise_bands):
         super(NoiseSynthesizer, self).__init__()
-
+        self.data_size = out_dim
+        self.target_size = torch.tensor(np.prod(ratios)).long(),
         net = []
 
         for i in range(len(ratios) - 1):
