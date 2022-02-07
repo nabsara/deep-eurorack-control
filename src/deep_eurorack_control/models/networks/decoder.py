@@ -1,5 +1,7 @@
+import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
+from deep_eurorack_control.models.networks.utils import mod_sigmoid, amp_to_impulse_response, fft_convolve
 
 
 class ResnetBlock(nn.Module):
@@ -55,13 +57,13 @@ class NoiseSynthesizer(nn.Module):
 
         for i in range(len(ratios) - 1):
             net.append(nn.Sequential(
-                nn.Conv1d(in_dim, in_dim, 3, stride=ratios[i]),
+                nn.Conv1d(in_dim, in_dim, 3, stride=ratios[i], padding=1),
                 nn.LeakyReLU(negative_slope=0.2)
             ))
 
         # last layer
         net.append(nn.Sequential(
-            nn.Conv1d(in_dim, out_dim * noise_bands, 3, stride=ratios[-1]),
+            nn.Conv1d(in_dim, out_dim * noise_bands, 3, stride=ratios[-1], padding=1),
             nn.LeakyReLU(negative_slope=0.2)  # cf. schema
         ))
 
@@ -69,12 +71,21 @@ class NoiseSynthesizer(nn.Module):
 
     def forward(self, x):
         # TODO: add white noise + filter
-        pass
+        amp = mod_sigmoid(self.net(x) - 5)
+        amp = amp.permute(0, 2, 1)
+        amp = amp.reshape(amp.shape[0], amp.shape[1], self.data_size, -1)
+
+        ir = amp_to_impulse_response(amp, self.target_size)
+        noise = torch.rand_like(ir) * 2 - 1
+
+        noise = fft_convolve(noise, ir).permute(0, 2, 1, 3)
+        noise = noise.reshape(noise.shape[0], noise.shape[1], -1)
+        return noise
 
 
 class Decoder(nn.Module):
 
-    def __init__(self, data_size, latent_dim=128, hidden_dim=64):
+    def __init__(self, data_size, latent_dim=128, hidden_dim=64, noise_ratios=[4, 4, 4], noise_bands=5):
         super(Decoder, self).__init__()
 
         ratios = [4, 4, 4, 2]
@@ -149,26 +160,26 @@ class Decoder(nn.Module):
         # audio signal (with tanh activation)
         self.waveform = nn.Sequential(
             weight_norm(nn.Conv1d(hidden_dim, data_size, 7, padding=3)),
-            nn.Tanh()
+            # nn.Tanh()
         )
         # 2nd sub-network (loudness), generating an amplitude
         # envelope (with sigmoid activation)
         self.loudness = nn.Sequential(
             weight_norm(nn.Conv1d(hidden_dim, 1, 3, stride=1, padding=1)),
-            nn.Sigmoid()
+            # nn.Sigmoid()
         )
         # 3rd sub-network noise synthesizer (proposed in
         # Engel et al. (2019)), and produces a multiband
         # filtered noise added to the previous signal.
-        # self.noise_synth = NoiseSynthesizer(
-        #     in_dim=hidden_dim,
-        #     out_dim=data_size,
-        #     ratios=noise_ratios,
-        #     noise_bands=noise_bands
-        # )
+        self.noise_synth = NoiseSynthesizer(
+             in_dim=hidden_dim,
+             out_dim=data_size,
+             ratios=noise_ratios,
+             noise_bands=noise_bands
+        )
 
     def forward(self, x):
-        #x_dec = self.net(x)
+        # x_dec = self.net(x)
         x = self.conv1(x)
         x = self.up1(x)
         x = self.res1(x)
@@ -181,9 +192,9 @@ class Decoder(nn.Module):
 
         waveform = self.waveform(x_dec)
         loudness = self.loudness(x_dec)
-        output = waveform * loudness
+        # output = waveform * loudness
 
         # TODO: implement NoiseSynthesizer forward
-        # noise = self.noise_synth(x_dec)
-        # output = waveform * loudness + noise
+        noise = self.noise_synth(x_dec)
+        output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise
         return output
