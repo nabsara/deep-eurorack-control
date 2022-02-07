@@ -1,16 +1,21 @@
+from warnings import resetwarnings
 import torch.nn as nn 
 import torch
 
 class Decoder(nn.Module):
-    def __init__(self, n_amps,n_bands,n_hidden=512):
+    def __init__(self, n_amps,n_bands,residual=False,n_z=16,n_hidden=512):
         super().__init__()
 
-        
+        self.residual=residual
 
         self.mlp_pitch = self.make_mlp(1,n_hidden)
         self.mlp_loud = self.make_mlp(1,n_hidden)
         
-        self.gru = nn.GRU(n_hidden*2,n_hidden)
+        if self.residual==True:
+            self.mlp_res = self.make_mlp(n_z,n_hidden)
+            self.gru = nn.GRU(n_hidden*3,n_hidden)
+        else:
+            self.gru = nn.GRU(n_hidden*2,n_hidden)
         
         self.mlp_out = self.make_mlp(n_hidden+2,n_hidden)
         
@@ -31,11 +36,14 @@ class Decoder(nn.Module):
             make_layer(n_hidden,n_hidden)
         ))
     
-    def forward(self, pitch,loud):
+    def forward(self, pitch,loud,res=None):
         pitch_out = self.mlp_pitch(pitch)
         loud_out  = self.mlp_loud(loud)
-        
-        gru_out,_  = self.gru(torch.cat([pitch_out,loud_out],-1))
+        if self.residual == True:
+            res_out = self.mlp_res(res)
+            gru_out,_  = self.gru(torch.cat([pitch_out,loud_out,res_out],-1))
+        else:
+            gru_out,_  = self.gru(torch.cat([pitch_out,loud_out],-1))
         
         net_out =self.mlp_out(torch.cat([gru_out,pitch,loud],-1))
         

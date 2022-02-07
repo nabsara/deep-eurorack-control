@@ -2,28 +2,42 @@ import torch
 from tqdm import tqdm
 import time
 import os
+import torchaudio
 from torch.utils.tensorboard import SummaryWriter
 from deep_eurorack_control.config import settings
 
 from deep_eurorack_control.models.ddsp.decoder import Decoder
+from deep_eurorack_control.models.ddsp.encoder import Encoder
+
 from deep_eurorack_control.models.ddsp.ops import *
 from deep_eurorack_control.helpers.ddsp import plot_metrics
 
 class DDSP:
-    def __init__(self,sr,frame_size,n_harmonics,n_bands):
+    def __init__(self,sr,frame_size,n_harmonics,n_bands,residual=False,n_z=16):
 
         self.sr = sr
         self.frame_size = frame_size
         self.n_harmonics = n_harmonics 
         self.n_bands = n_bands
         self.scales = [2048,1024,512,256,128,64]
+        self.residual = residual
+        self.n_z = n_z
+        self.n_mfcc = 30
         
-        self.decoder = Decoder(self.n_harmonics,self.n_bands).to(settings.device)
         
+        self.decoder = Decoder(self.n_harmonics,self.n_bands,self.residual,self.n_z).to(settings.device)
+        
+        if self.residual==True:
+            self.encoder = Encoder(self.n_z,self.n_mfcc).to(settings.device)
+            self.wave2mfcc = torchaudio.transforms.MFCC(sample_rate=sr, n_mfcc=self.n_mfcc, melkwargs={"n_fft": 1024,"hop_length":int(1024/4),"f_min":20,"f_max":int(sr/2),"n_mels":128,"center":True}).to(settings.device)
         
     def _init_optimizer(self, learning_rate,alpha):
+        if self.residual==True:
+            params = list(self.encoder.parameters()) + list(self.decoder.parameters())
+        else:
+            params =self.decoder.parameters()
         self._opt = torch.optim.Adam(
-            self.decoder.parameters(), lr=learning_rate)
+            params, lr=learning_rate)
         schedule = self._init_schedule(alpha)
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
     
@@ -66,7 +80,13 @@ class DDSP:
                 signal_in = audio.reshape(audio.shape[0],-1).to(settings.device)
                 
                 self._opt.zero_grad()
-                harmonics,filters = self.decoder(pitch,loud)
+                
+                if self.residual==True:
+                    mfcc = self.wave2mfcc(signal_in)[...,:-1]
+                    res = self.encoder(mfcc.permute(0,2,1))
+                    harmonics,filters = self.decoder(pitch,loud,res)
+                else:
+                    harmonics,filters = self.decoder(pitch,loud)
 
                 signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
                 

@@ -74,6 +74,7 @@ def smooth(params,frame_size,final_size):
     window = window/(window[0] + window[int(winlen/2)])
 
 
+
     temp = temp.unfold(-1,winlen,hop)[:,:,:,int(winlen/2)][:,:,:,None]*window[None,None,None,:]
     temp =temp.reshape(int(nb_features*batch_size),-1,winlen).permute(0,2,1)
 
@@ -104,4 +105,5 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
 
     signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
     return(signal)
+
 

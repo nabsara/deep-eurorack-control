@@ -12,10 +12,12 @@ class DDSP_Pipeline:
         sr,
         frame_size,
         n_harmonics,
-        n_bands
+        n_bands,
+        residual,
+        n_z
         
     ):
-        self.model = DDSP(sr,frame_size,n_harmonics,n_bands)
+        self.model = DDSP(sr,frame_size,n_harmonics,n_bands,residual,n_z)
         
         self.dataset = NSynth_ddsp(dataset_dir)
 
