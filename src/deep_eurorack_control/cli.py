@@ -76,6 +76,11 @@ def train_mnist_vae(
     help="Data loader batch size",
 )
 @click.option(
+    "--n_band",
+    default=1,
+    help="Number of bands in the multiband signal decomposition (pqmf)",
+)
+@click.option(
     "--n_epochs",
     default=10,
     help="Number of epochs",
@@ -95,22 +100,33 @@ def train_mnist_vae(
     default=2,
     help="Number of epoch for the first training stage representation learning"
 )
+@click.option(
+    "--sampling_rate",
+    default=16000,
+    help="sampling rate",
+)
 def train_rave(
     data_dir,
     audio_dir,
     models_dir,
     batch_size,
+    n_band,
     n_epochs,
     learning_rate,
     display_step,
     n_epoch_warmup,
+    sampling_rate
 ):
     print(locals())
     pipeline = RAVEPipeline(
         data_dir=data_dir,
         audio_dir=audio_dir,
         models_dir=models_dir,
-        batch_size=batch_size
+        batch_size=batch_size,
+        n_band=n_band,
+        latent_dim=128,
+        hidden_dim=64,
+        sampling_rate=sampling_rate
     )
     pipeline.train(
         learning_rate=learning_rate,

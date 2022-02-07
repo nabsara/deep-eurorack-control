@@ -14,14 +14,17 @@ from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeL
 
 class RAVE:
 
-    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, n_taps=8, sampling_rate=48000):
+    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=16000):
 
         self.model_name = "n_synth_rave"
-        #self.multi_band_decomposition = PQMF(
+        self.sampling_rate = sampling_rate
+
+        # n_taps=4
+        # self.multi_band_decomposition = PQMF(
         #    n_band=n_band,
         #    n_taps=n_taps,
         #    sampling_rate=sampling_rate
-        #)
+        # )
         self.multi_band_decomposition = PQMF(
             attenuation=100,
             n_band=n_band,
@@ -280,24 +283,32 @@ class RAVE:
                     y, loss = self.validation_step(x)
 
                     valid_loss_display += loss.item()
+                    # add audio to tensorboard
+                    if it_display == 0:
+                        for j in range(x.shape[0]):
+                            writer.add_audio(
+                                "generated_sound/" + str(j),
+                                y,
+                                global_step=epoch * len(valid_loader) + cur_step,
+                                sample_rate=self.sampling_rate,
+                            )
+                            writer.add_audio(
+                                "ground_truth_sound/" + str(j),
+                                x,
+                                global_step=epoch * len(valid_loader) + cur_step,
+                                sample_rate=self.sampling_rate,
+                            )
                     it_display += 1
                 print(
                     f"\nEpoch: [{epoch}/{n_epochs}] \t Validation loss: {valid_loss_display / it_display}"
                 )
+                writer.add_scalar(
+                    f"Validation total loss :",
+                    valid_loss_display / it_display,
+                    epoch * len(valid_loader) + cur_step,
+                )
                 valid_loss.append(valid_loss_display / it_display)
-                for j in range(x.shape[0]):
-                    writer.add_audio(
-                        "generated_sound/" + str(j),
-                        y,
-                        global_step=epoch * len(valid_loader) + cur_step,
-                        sample_rate=16000,
-                    )
-                    writer.add_audio(
-                        "ground_truth_sound/" + str(j),
-                        x,
-                        global_step=epoch * len(valid_loader) + cur_step,
-                        sample_rate=16000,
-                    )
+
             # model checkpoints:
             if epoch % 10 == 0 or epoch == n_epochs - 1:
                 torch.save(
