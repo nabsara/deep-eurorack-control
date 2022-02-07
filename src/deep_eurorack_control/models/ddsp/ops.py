@@ -20,10 +20,10 @@ def get_loudness(signal,sr,frame_size,n_fft):
     return(loudness)
 
 
-def h_synth(f0,amps,sr):
-    freqs = f0 * torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
-    amps = amps*(freqs<sr/2)
-    phases = 2*np.pi*freqs/sr * torch.arange(0,amps.shape[1]).to(settings.device)[None,:,None]
+def h_synth(f0,amps,sr):    
+    phases = torch.cumsum(2 * np.pi * f0 / sr, 1)
+    phases = phases * torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
+    # phases = 2*np.pi*freqs/sr * torch.arange(0,amps.shape[1]).to(settings.device)[None,:,None]
     wave = amps*torch.sin(phases)
     return(torch.sum(wave,axis=-1))
 
@@ -85,19 +85,22 @@ def smooth(params,frame_size,final_size):
 def generate_signal(pitch,harmonics,filters,frame_size,sr):
     amps = harmonics[:,:,1:]
     level = harmonics[:,:,:1]
+    
+    freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
+    amps = amps*((freqs<sr/2).float()+1e-4)
+    
     amps = level*amps/torch.sum(amps,axis=-1,keepdim=True)
 
-    freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
-    amps = amps*(freqs<sr/2)
+
     
     len_signal = pitch.shape[1]*frame_size
     
     amps = upsample(amps,len_signal)
     
-    amps = smooth(amps,frame_size,len_signal)
+    # amps = smooth(amps,frame_size,len_signal)
     
     f0  =  upsample(pitch,len_signal)
-    f0 = smooth(f0,frame_size,len_signal)
+    # f0 = smooth(f0,frame_size,len_signal)
 
     signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
     return(signal)
