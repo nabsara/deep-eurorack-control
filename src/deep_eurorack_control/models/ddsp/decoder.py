@@ -51,6 +51,8 @@ class Decoder(nn.Module):
         harmonics = self.dense_amps(net_out)
         harmonics = 2*torch.sigmoid(harmonics)**2.3025851 + 1e-7
         filters = self.dense_filters(net_out)
+        
         filters = 2*torch.sigmoid(filters)**2.3025851 + 1e-7
-        f0 = pitch*(1+torch.tanh(self.dense_f0(net_out)))
+        
+        f0 = pitch*(1+0.2*torch.tanh(self.dense_f0(net_out)))
         return harmonics,filters,f0
