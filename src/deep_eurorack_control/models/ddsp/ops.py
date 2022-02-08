@@ -103,7 +103,7 @@ def generate_signal(pitch,harmonics,filters,frame_size,sr):
     f0  =  upsample(pitch,len_signal)
     # f0 = smooth(f0,frame_size,len_signal)
 
-    signal = h_synth(f0,amps,sr)+ noise_synth(filters,frame_size)
+    signal = h_synth(f0,amps,sr)+ #noise_synth(filters,frame_size)
     return(signal)
 
 
