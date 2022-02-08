@@ -18,10 +18,12 @@ class Decoder(nn.Module):
             self.gru = nn.GRU(n_hidden*2,n_hidden)
         
         self.mlp_out = self.make_mlp(n_hidden+2,n_hidden)
+        self.mlp_out_fo = self.make_mlp(n_hidden,n_hidden)
         
         self.dense_amps = nn.Linear(n_hidden,n_amps)
         self.dense_filters = nn.Linear(n_hidden,n_bands)
         self.dense_f0 = nn.Linear(n_hidden,1)
+        
 
     def make_mlp(self, n_input, n_hidden):
         def make_layer(n_in,n_out):
@@ -51,8 +53,8 @@ class Decoder(nn.Module):
         harmonics = self.dense_amps(net_out)
         harmonics = 2*torch.sigmoid(harmonics)**2.3025851 + 1e-7
         filters = self.dense_filters(net_out)
-        
         filters = 2*torch.sigmoid(filters)**2.3025851 + 1e-7
         
-        f0 = pitch*(1+0.2*torch.tanh(self.dense_f0(net_out)))
+        net_out_f0 = self.mlp_out_fo(net_out)
+        f0 = pitch*(1+0.2*torch.tanh(self.dense_f0(net_out_f0)))
         return harmonics,filters,f0
