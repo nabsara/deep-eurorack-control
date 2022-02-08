@@ -12,12 +12,13 @@ class Decoder(nn.Module):
         self.mlp_loud = self.make_mlp(1,n_hidden)
         
         if self.residual==True:
+            print('residual')
             self.mlp_res = self.make_mlp(n_z,n_hidden)
             self.gru = nn.GRU(n_hidden*3,n_hidden)
         else:
             self.gru = nn.GRU(n_hidden*2,n_hidden)
         
-        self.mlp_out = self.make_mlp(n_hidden+1,n_hidden)
+        self.mlp_out = self.make_mlp(n_hidden+2,n_hidden)
         self.mlp_out_fo = self.make_mlp(n_hidden,n_hidden)
         
         self.dense_amps = nn.Linear(n_hidden,n_amps)
@@ -48,7 +49,7 @@ class Decoder(nn.Module):
         else:
             gru_out,_  = self.gru(torch.cat([pitch_out,loud_out],-1))
         
-        net_out =self.mlp_out(torch.cat([gru_out,loud],-1))
+        net_out =self.mlp_out(torch.cat([gru_out,pitch,loud],-1))
         
         harmonics = self.dense_amps(net_out)
         harmonics = 2*torch.sigmoid(harmonics)**2.3025851 + 1e-7

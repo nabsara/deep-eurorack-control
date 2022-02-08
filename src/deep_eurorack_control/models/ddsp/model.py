@@ -19,7 +19,8 @@ class DDSP:
         self.frame_size = frame_size
         self.n_harmonics = n_harmonics 
         self.n_bands = n_bands
-        self.scales = [2048,1024,512,256,128,64]
+        self.scales = [2048,1024,512]
+        #self.scales = [2048,1024,512,256,128,64]
         self.residual = residual
         self.n_z = n_z
         self.n_mfcc = 30
