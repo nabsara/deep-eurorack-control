@@ -74,8 +74,10 @@ class DDSP:
         it = 0  # number of batch iterations updated at the end of the dataloader for loop
         for epoch in range(n_epochs):
             for data in tqdm(dataloader):
-                pitch,loud,audio = data
-                pitch = pitch.to(settings.device)
+                pitch_true,loud,audio = data
+                pitch_true = pitch_true.to(settings.device)
+                pitch_avg = pitch_true[:,10:30].mean(axis=1,keepdims=True)*torch.ones_like(pitch_true)
+                pitch=pitch_avg
                 loud = loud.to(settings.device)
                 signal_in = audio.reshape(audio.shape[0],-1).to(settings.device)
                 
@@ -120,12 +122,13 @@ class DDSP:
                         rec_audio = signal_out[:2].detach().cpu()
                         rec_harmonics = harmonics.detach().cpu().numpy()
                         rec_filters = filters.detach().cpu().numpy()
-                        pitch_in = pitch[:2].detach().cpu().numpy()
+                        pitch_in = pitch_true[:2].detach().cpu().numpy()
                         pitch_out = f0[:2].detach().cpu().numpy()
+                        pitch_fed = pitch[:2].detach().cpu().numpy()
                         # loudp  = loud[:4].detach().cpu().numpy() 
 
                         for j in range(real_audio.shape[0]):
-                            figure = plot_metrics(pitch_in[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size,pitch_out[j])
+                            figure = plot_metrics(pitch_in[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size,pitch_out[j],pitch_fed[j])
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),
                                         rec_audio[j],
