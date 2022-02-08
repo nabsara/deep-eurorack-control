@@ -4,16 +4,18 @@ from deep_eurorack_control.models.rave import RAVE
 
 class RAVEPipeline:
 
-    def __init__(self, data_dir, audio_dir, models_dir, batch_size, n_band=1, latent_dim=128, hidden_dim=64, sampling_rate=16000):
+    def __init__(self, data_dir, audio_dir, nsynth_json, models_dir, batch_size, n_band=1, latent_dim=128, hidden_dim=64, sampling_rate=16000):
         self.data_dir = data_dir
         self.audio_dir = audio_dir
         self.models_dir = models_dir
         self.batch_size = batch_size
+        self.nsynth_json = nsynth_json
 
         self.train_loader, self.valid_loader = nsynth_data_loader(
             batch_size=self.batch_size,
             data_dir=self.data_dir,
             audio_dir=self.audio_dir,
+            nsynth_json=self.nsynth_json
         )
 
         self.model = RAVE(n_band=n_band, latent_dim=latent_dim, hidden_dim=hidden_dim, sampling_rate=sampling_rate)

@@ -1,4 +1,6 @@
 import click
+import json
+import os
 
 from deep_eurorack_control.config import settings
 from deep_eurorack_control.pipelines.mnist_pipeline import MNISTPipeline
@@ -71,6 +73,11 @@ def train_mnist_vae(
     help="Absolute path to models directory",
 )
 @click.option(
+    "--nsynth_json",
+    default="nsynth_string.json",
+    help="Nsynth JSON audio files selection"
+)
+@click.option(
     "--batch_size",
     default=8,
     help="Data loader batch size",
@@ -109,6 +116,7 @@ def train_rave(
     data_dir,
     audio_dir,
     models_dir,
+    nsynth_json,
     batch_size,
     n_band,
     n_epochs,
@@ -122,6 +130,7 @@ def train_rave(
         data_dir=data_dir,
         audio_dir=audio_dir,
         models_dir=models_dir,
+        nsynth_json=nsynth_json,
         batch_size=batch_size,
         n_band=n_band,
         latent_dim=128,
@@ -134,3 +143,34 @@ def train_rave(
         display_step=display_step,
         n_epoch_warmup=n_epoch_warmup
     )
+
+
+@click.option(
+    "--nsynth_path",
+    default=settings.DATA_DIR,
+    help="Absolute path to nsynth dataset directory",
+)
+@click.option(
+    "--data_dir",
+    default=settings.DATA_DIR,
+    help="Absolute path to data directory",
+)
+@click.option(
+    "--instrument_class",
+    default="string",
+    help="instrument class name",
+)
+@click.option(
+    "--output_filename",
+    default="nsynth_string.json",
+    help="Absolute path to data directory",
+)
+def write_nsynth_json(nsynth_path, data_dir, instrument_class, output_filename):
+    with open(os.path.join(nsynth_path, "examples.json"), "r") as f:
+        data = json.load(f)
+
+    data_strings = {k: v for k, v in data.items() if k.startswith(instrument_class)}
+    print(f"nb samples : {len(data_strings.keys())}")
+
+    with open(os.path.join(data_dir, output_filename), "w", encoding="utf-8") as f:
+        json.dump(data_strings, f, indent=4)

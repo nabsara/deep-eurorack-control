@@ -17,5 +17,5 @@ if __name__ == "__main__":
     print(f"nb samples : {len(data_strings.keys())}")
     pprint(data_strings["string_acoustic_056-047-075"])
 
-    with open(os.path.join(DATA_DIR, "nsynth_string.json"), "w") as f:
-        json.dump(data_strings, f)
+    with open(os.path.join(DATA_DIR, "nsynth_string.json"), "w", encoding='utf-8') as f:
+        json.dump(data_strings, f, indent=4)

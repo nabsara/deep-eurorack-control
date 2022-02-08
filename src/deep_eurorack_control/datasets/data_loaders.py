@@ -26,12 +26,12 @@ def mnist_data_loader(batch_size, data_dir, valid_ratio=0.2, num_threads=0):
     return train_loader, valid_loader, test_loader
 
 
-def nsynth_data_loader(batch_size, data_dir=settings.DATA_DIR, audio_dir=settings.AUDIO_DIR, valid_ratio=0.2, num_threads=0):
+def nsynth_data_loader(batch_size, data_dir=settings.DATA_DIR, audio_dir=settings.AUDIO_DIR, nsynth_json="nsynth_string.json", valid_ratio=0.2, num_threads=0):
     # Load the dataset for the training/validation sets
     train_valid_set = NSynthDataset(
         data_dir=data_dir,
         audio_dir=audio_dir,
-        nsynth_json="nsynth_string.json",
+        nsynth_json=nsynth_json,
         transform=None  # transforms.ToTensor()
     )
 

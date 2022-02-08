@@ -51,6 +51,12 @@ deep-eurorack-control
 
 ```
 
+## Prepare Nsynth dataset files corresponding to the instrument class
+
+```bash
+(myenv)$  python -m deep_eurorack_control write-nsynth-json --nsynth_path /CHANGE-ME/nsynth-test --instrument_class string --output_filename nsynth_string_test.json
+```
+
 ## Run on server
 
 First create `data` and `models` directories
