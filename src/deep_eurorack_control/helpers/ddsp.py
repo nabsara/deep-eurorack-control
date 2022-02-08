@@ -87,7 +87,7 @@ def plot_stft(stft,sr,ax=None,fig=None,times=None,label=None):
        
     
     
-def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size):
+def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size,pitch_out=None):
 
     level = harmonics[:,0]
     harmonics_mag = harmonics[:,1:]/np.sum(harmonics[:,1:],axis=-1,keepdims=True)
@@ -116,6 +116,8 @@ def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size):
     
     times = np.linspace(0,pitch.shape[0]*frame_size/sr,pitch.shape[0])
     ax_pitch.plot(times,pitch,color='k',linewidth = 0.5,label='Target')
+    if pitch_out is not None:
+        ax_pitch.plot(times,pitch_out,color='r',linewidth = 0.5,label='Computed Pitch')
     
     ax_loud.plot(times,loud_out,label='Reconstructed')
     ax_loud.plot(times,loud,color='k',linestyle='--',label='Target')

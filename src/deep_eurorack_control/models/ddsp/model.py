@@ -84,11 +84,11 @@ class DDSP:
                 if self.residual==True:
                     mfcc = self.wave2mfcc(signal_in)[...,:-1]
                     res = self.encoder(mfcc.permute(0,2,1))
-                    harmonics,filters = self.decoder(pitch,loud,res)
+                    harmonics,filters,f0 = self.decoder(pitch,loud,res)
                 else:
-                    harmonics,filters = self.decoder(pitch,loud)
+                    harmonics,filters,f0 = self.decoder(pitch,loud)
 
-                signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
+                signal_out = generate_signal(f0,harmonics,filters,self.frame_size,self.sr)
                 
                 loss = self._compute_loss(signal_in,signal_out)
                 loss.backward()
@@ -120,11 +120,12 @@ class DDSP:
                         rec_audio = signal_out[:2].detach().cpu()
                         rec_harmonics = harmonics.detach().cpu().numpy()
                         rec_filters = filters.detach().cpu().numpy()
-                        pitchp = pitch[:2].detach().cpu().numpy()
+                        pitch_in = pitch[:2].detach().cpu().numpy()
+                        pitch_out = f0[:2].detach().cpu().numpy()
                         # loudp  = loud[:4].detach().cpu().numpy() 
 
                         for j in range(real_audio.shape[0]):
-                            figure = plot_metrics(pitchp[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size)
+                            figure = plot_metrics(pitch_in[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size,pitch_out[j])
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),
                                         rec_audio[j],
