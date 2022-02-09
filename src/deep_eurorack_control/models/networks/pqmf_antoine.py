@@ -5,6 +5,7 @@ import numpy as np
 from scipy.signal import kaiserord, firwin
 from scipy.optimize import fmin
 from einops import rearrange
+from deep_eurorack_control.config import settings
 
 
 def reverse_half(x):
@@ -195,12 +196,12 @@ class PQMF(nn.Module):
                 power
             ), "when using the polyphase algorithm, n_band must be a power of 2"
 
-        h = torch.from_numpy(h).float()
+        h = torch.from_numpy(h).float().to(settings.device)
         hk = get_qmf_bank(h, n_band)
-        hk = center_pad_next_pow_2(hk)
+        self.hk = center_pad_next_pow_2(hk).to(settings.device)
 
-        self.register_buffer("hk", hk)
-        self.register_buffer("h", h)
+        # self.register_buffer("hk", hk)
+        # self.register_buffer("h", h)
         self.n_band = n_band
         self.polyphase = polyphase
 
