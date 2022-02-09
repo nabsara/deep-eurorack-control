@@ -10,6 +10,7 @@ from deep_eurorack_control.config import settings
 from deep_eurorack_control.models.networks import Encoder, Decoder, Discriminator
 from deep_eurorack_control.models.networks.pqmf_antoine import PQMF
 from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeLoss, FeatureMatchingLoss
+from deep_eurorack_control.helpers.data_viz import plot_metrics
 
 
 class RAVE:
@@ -278,26 +279,16 @@ class RAVE:
                 it += 1
 
             with torch.no_grad():
+                x_eval = []
+                y_eval = []
+                nb_examples = 10
                 for x, _ in tqdm(valid_loader):
                     x = x.to(settings.device)
                     y, loss = self.validation_step(x)
-
+                    if len(x_eval) < nb_examples:
+                        x_eval.append(x[0])
+                        y_eval.append(y[0])
                     valid_loss_display += loss.item()
-                    # add audio to tensorboard
-                    if it_display == 0:
-                        for j in range(x.shape[0]):
-                            writer.add_audio(
-                                "generated_sound/" + str(j),
-                                y,
-                                global_step=epoch * len(valid_loader) + cur_step,
-                                sample_rate=self.sampling_rate,
-                            )
-                            writer.add_audio(
-                                "ground_truth_sound/" + str(j),
-                                x,
-                                global_step=epoch * len(valid_loader) + cur_step,
-                                sample_rate=self.sampling_rate,
-                            )
                     it_display += 1
                 print(
                     f"\nEpoch: [{epoch}/{n_epochs}] \t Validation loss: {valid_loss_display / it_display}"
@@ -307,6 +298,26 @@ class RAVE:
                     valid_loss_display / it_display,
                     epoch * len(valid_loader) + cur_step,
                 )
+                # add audio to tensorboard
+                for j in range(len(x_eval)):
+                    fig_stft = plot_metrics(signal_in=x_eval[j], signal_out=y_eval[j], sr=self.sampling_rate)
+                    writer.add_audio(
+                        "ground_truth_sound/" + str(j),
+                        x_eval[j],
+                        global_step=epoch * len(valid_loader) + cur_step,
+                        sample_rate=self.sampling_rate,
+                    )
+                    writer.add_audio(
+                        "generated_sound/" + str(j),
+                        y_eval[j],
+                        global_step=epoch * len(valid_loader) + cur_step,
+                        sample_rate=self.sampling_rate,
+                    )
+                    writer.add_figure(
+                        "Output Images/" + str(j),
+                        fig_stft,
+                        global_step=epoch * len(valid_loader) + cur_step,
+                    )
                 valid_loss.append(valid_loss_display / it_display)
 
             # model checkpoints:
