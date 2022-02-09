@@ -43,7 +43,7 @@ class DDSP:
         else:
             params =self.decoder.parameters()
             
-        params = list(self.encoder.parameters()) + list(self.decoder_pitch.parameters()) 
+        # params = list(self.encoder.parameters()) + list(self.decoder_pitch.parameters()) 
         self._opt = torch.optim.Adam(
             params, lr=learning_rate)
         schedule = self._init_schedule(alpha)
@@ -113,8 +113,7 @@ class DDSP:
                 
                 f0_loss =  self._compute_loss_f0(pitch_true,pitch_conf,pitch)
                 spec_loss = self._compute_loss_spec(signal_in,signal_out)
-                loss = f0_loss
-                #+spec_loss
+                loss = f0_loss+spec_loss
                 loss.backward()
               
                 self._opt.step()
