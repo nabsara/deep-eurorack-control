@@ -93,7 +93,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,residual,n_z,pitch_estim):
     if preprocess==True:
         preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=None)
-    #pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z,pitch_estim)   
-    #pipeline.train(lr,batch_size,n_epochs,display_step,logdir,alpha)
+    pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z,pitch_estim)   
+    pipeline.train(lr,batch_size,n_epochs,display_step,logdir,alpha)
     
     
