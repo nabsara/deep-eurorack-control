@@ -120,7 +120,8 @@ def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size,pitc
         ax_pitch.plot(times,pitch_out,color='r',linewidth = 0.5,label='Computed Pitch')
     if pitch_fed is not None:
         ax_pitch.plot(times,pitch_fed,color='b',linewidth = 0.5,label='Pitch fed to the network')
-                
+    
+    ax_pitch.set_ylim(0.85*pitch_fed[0],1.15*pitch_fed[0])
     ax_loud.plot(times,loud_out,label='Reconstructed')
     ax_loud.plot(times,loud,color='k',linestyle='--',label='Target')
     
