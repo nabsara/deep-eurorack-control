@@ -6,27 +6,29 @@ import torchaudio
 from torch.utils.tensorboard import SummaryWriter
 from deep_eurorack_control.config import settings
 
-from deep_eurorack_control.models.ddsp.decoder import Decoder
+from deep_eurorack_control.models.ddsp.decoder import Decoder,DecoderPitch
 from deep_eurorack_control.models.ddsp.encoder import Encoder
 
 from deep_eurorack_control.models.ddsp.ops import *
 from deep_eurorack_control.helpers.ddsp import plot_metrics
 
 class DDSP:
-    def __init__(self,sr,frame_size,n_harmonics,n_bands,residual=False,n_z=16):
+    def __init__(self,sr,frame_size,n_harmonics,n_bands,residual=False,n_z=16,pitch_estim=False):
 
         self.sr = sr
         self.frame_size = frame_size
         self.n_harmonics = n_harmonics 
         self.n_bands = n_bands
-        self.scales = [2048,1024,512]
-        #self.scales = [2048,1024,512,256,128,64]
+        self.scales = [2048,1024,512,256,128,64]
         self.residual = residual
+        self.pitch_estim = pitch_estim
         self.n_z = n_z
         self.n_mfcc = 30
         
         
         self.decoder = Decoder(self.n_harmonics,self.n_bands,self.residual,self.n_z).to(settings.device)
+        if pitch_estim:
+            self.decoder_pitch = DecoderPitch(self.n_z).to(settings.device)
         
         if self.residual==True:
             self.encoder = Encoder(self.n_z,self.n_mfcc).to(settings.device)
@@ -34,16 +36,26 @@ class DDSP:
         
     def _init_optimizer(self, learning_rate,alpha):
         if self.residual==True:
-            params = list(self.encoder.parameters()) + list(self.decoder.parameters())
+            if self.pitch_estim:
+                params = list(self.encoder.parameters()) + list(self.decoder.parameters())+ list(self.decoder_pitch.parameters())
+            else:
+                params = list(self.encoder.parameters()) + list(self.decoder.parameters())
         else:
             params =self.decoder.parameters()
+            
+        params = list(self.encoder.parameters()) + list(self.decoder_pitch.parameters()) 
         self._opt = torch.optim.Adam(
             params, lr=learning_rate)
         schedule = self._init_schedule(alpha)
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self._opt, schedule)
     
-    def _compute_loss(self,signal_in,signal_out,alpha=1):
+    def _compute_loss_spec(self,signal_in,signal_out,alpha=1):
         loss_batch = spectral_loss(self.scales,signal_in,signal_out,alpha)
+        return(torch.mean(loss_batch))
+    
+    def _compute_loss_f0(self,pitch_true,pitch_conf,pitch_estim):
+        
+        loss_batch = torch.abs(pitch_true-pitch_estim)*(pitch_conf>0.6)
         return(torch.mean(loss_batch))
     
     def _init_schedule(self,alpha):
@@ -68,37 +80,47 @@ class DDSP:
         )
         
         losses=[]
-        display_loss = 0
+        display_loss =torch.tensor([0,0,0]).float()
         it_display = 0
         print(settings.device)
 
         it = 0  # number of batch iterations updated at the end of the dataloader for loop
         for epoch in range(n_epochs):
             for data in tqdm(dataloader):
-                pitch_true,loud,audio = data
-                pitch_true = pitch_true.to(settings.device)
-                pitch_avg = pitch_true[:,10:30].mean(axis=1,keepdims=True)*torch.ones_like(pitch_true)
-                pitch=pitch_avg
-                loud = loud.to(settings.device)
-                signal_in = audio.reshape(audio.shape[0],-1).to(settings.device)
+                pitch_true,pitch_conf,loud,audio = [item.to(settings.device) for item in data]
+                signal_in = audio.reshape(audio.shape[0],-1)
                 
                 self._opt.zero_grad()
-                
+            
                 if self.residual==True:
                     mfcc = self.wave2mfcc(signal_in)[...,:-1]
                     res = self.encoder(mfcc.permute(0,2,1))
-                    harmonics,filters,f0 = self.decoder(pitch,loud,res)
                 else:
-                    harmonics,filters,f0 = self.decoder(pitch,loud)
-
-                signal_out = generate_signal(f0,harmonics,filters,self.frame_size,self.sr)
+                    res=None
                 
-                loss = self._compute_loss(signal_in,signal_out)
+                if self.pitch_estim ==True:
+                    pitch_avg = pitch_true[:,10:30].mean(axis=1,keepdims=True)*torch.ones_like(pitch_true)
+                    pitch = self.decoder_pitch(pitch_avg,res)
+                else:
+                    pitch=pitch_true
+                
+                # print(pitch_conf[0])
+                # print(pitch[0])
+                # print(pitch_true[0])
+                harmonics,filters = self.decoder(pitch,loud,res)
+                
+                signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
+                
+                f0_loss =  self._compute_loss_f0(pitch_true,pitch_conf,pitch)
+                spec_loss = self._compute_loss_spec(signal_in,signal_out)
+                loss = f0_loss
+                #+spec_loss
                 loss.backward()
               
                 self._opt.step()
-                losses.append(loss.item())
-                display_loss += loss.item()
+                loss_arr = [loss.item(),spec_loss.item(),f0_loss.item()]
+                losses.append(loss_arr)
+                display_loss += torch.tensor(loss_arr)
                 it_display+=1 
                 it+=1
                 
@@ -106,29 +128,38 @@ class DDSP:
                 if (it-1) % display_step == 0: #or (it== len(dataloader) - 1):
                     print(
                         f"\nEpoch: [{epoch}/{n_epochs}] \tStep: [{it}/{len(dataloader)}]"
-                        f"\tTime: {time.time() - start} (s)\tLoss: {display_loss/it_display}"
+                        f"\tTime: {time.time() - start} (s)\tSpec_Loss: {display_loss[1]/it_display}\tf0_Loss: {display_loss[2]/it_display}"
                     )
                     
                     writer.add_scalar(
-                            "training generator loss",
-                            display_loss / it_display,
+                            "Total Loss",
+                            display_loss[0] / it_display,
                             epoch * len(dataloader) + it,
                         )
+                    writer.add_scalar(
+                            "Spectral Loss",
+                            display_loss[1] / it_display,
+                            epoch * len(dataloader) + it,
+                        )
+                    writer.add_scalar(
+                            "Frequency Loss",
+                            display_loss[2] / it_display,
+                            epoch * len(dataloader) + it,
+                        )                                    
                                         
                     display_loss = 0 
                     it_display = 0 
                     
                     with torch.no_grad():
-                        real_audio = signal_in[:2].detach().cpu()
-                        rec_audio = signal_out[:2].detach().cpu()
+                        real_audio = signal_in.detach().cpu()
+                        rec_audio = signal_out.detach().cpu()
                         rec_harmonics = harmonics.detach().cpu().numpy()
                         rec_filters = filters.detach().cpu().numpy()
-                        pitch_in = pitch_true[:2].detach().cpu().numpy()
-                        pitch_out = f0[:2].detach().cpu().numpy()
-                        pitch_fed = pitch[:2].detach().cpu().numpy()
-                        # loudp  = loud[:4].detach().cpu().numpy() 
+                        pitch_in = pitch_true.detach().cpu().numpy()
+                        pitch_out = pitch.detach().cpu().numpy()
+                        pitch_fed = pitch_avg.detach().cpu().numpy()
 
-                        for j in range(real_audio.shape[0]):
+                        for j in range(2):
                             figure = plot_metrics(pitch_in[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size,pitch_out[j],pitch_fed[j])
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),

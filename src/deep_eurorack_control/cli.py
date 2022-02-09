@@ -12,7 +12,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--dataset_dir",
-    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\test2",
+    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\pitch_conf_test",
     help="Dataset Location",
 )
 @click.option(
@@ -22,12 +22,12 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--n_harmonics",
-    default=51,
+    default=11,
     help="Number of harmonics for the harmonic synthesizer",
 )
 @click.option(
     "--n_bands",
-    default=65,
+    default=25,
     help="Number of frequency bands for the substractive synthesizer",
 )
 @click.option(
@@ -37,7 +37,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--batch_size",
-    default=16,
+    default=4,
     help="Batch Size",
 )
 @click.option(
@@ -47,7 +47,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--display_step",
-    default=150,
+    default=5,
     help="Los and Tensorboard display step",
 )
 @click.option(
@@ -67,7 +67,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--raw_data_dir",
-    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\nsynth-train\audio",
+    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\nsynth-test\audio",
     help="Raw Dataset location(if preprocess==True)",
 )
 @click.option(
@@ -77,18 +77,23 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--residual",
-    default=False,
-    help="Learning rate decay",
+    default=True,
+    help="Residual latent space on",
 )
 @click.option(
     "--n_z",
     default=16,
-    help="Learning rate decay",
+    help="Residual latent space dim",
 )
-def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,residual,n_z):
+@click.option(
+    "--pitch_estim",
+    default=True,
+    help="Pitch estimation on",
+)
+def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,residual,n_z,pitch_estim):
     if preprocess==True:
-        preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=None)
-    pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z)   
+        preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=100)
+    pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z,pitch_estim)   
     pipeline.train(lr,batch_size,n_epochs,display_step,logdir,alpha)
     
     

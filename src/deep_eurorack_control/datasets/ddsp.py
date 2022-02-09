@@ -20,6 +20,7 @@ class NSynth_ddsp(Dataset):
         super().__init__()
     
         self.p_arr = load_pickle(os.path.join(dataset_dir,'pitch.pkl'))
+        self.pconf_arr = load_pickle(os.path.join(dataset_dir,'pitch_conf.pkl'))
         self.l_arr = load_pickle(os.path.join(dataset_dir,'loudness.pkl'))
         self.a_arr = load_pickle(os.path.join(dataset_dir,'audio.pkl'))
 
@@ -28,10 +29,8 @@ class NSynth_ddsp(Dataset):
 
     def __getitem__(self, index):
         
-        pitch = self.p_arr[index]
-        # pitch = savgol_filter(pitch[:,0],7,1)
-        # pitch = pitch.reshape(-1,1)
-        pitch = torch.tensor(pitch.copy()).float()
+        pitch = torch.tensor(self.p_arr[index].copy()).float()
+        pitch_conf = torch.tensor(self.pconf_arr[index].copy()).float()
         loud = torch.tensor(self.l_arr[index].copy()).float()
         audio = torch.tensor(self.a_arr[index].copy()).float()
-        return pitch,loud,audio
+        return pitch,pitch_conf,loud,audio

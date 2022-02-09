@@ -95,8 +95,8 @@ def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size,pitc
     loud = get_loudness(signal_in,sr,frame_size,n_fft=1024)
     
     
-    stft_in =  torch.abs(torch.stft(torch.tensor(signal_in),n_fft = 1024,return_complex=True,normalized=False,window=torch.hann_window(1024)    )  ).numpy() 
-    stft_out = torch.abs(torch.stft(torch.tensor(signal_out),n_fft = 1024,return_complex=True,normalized=False,window=torch.hann_window(1024) )  ).numpy()
+    stft_in =  torch.abs(torch.stft(torch.tensor(signal_in),n_fft = 1024,return_complex=True,normalized=False,window=torch.hann_window(1024)) ).numpy() 
+    stft_out = torch.abs(torch.stft(torch.tensor(signal_out),n_fft = 1024,return_complex=True,normalized=False,window=torch.hann_window(1024))).numpy()
     
     
     fig = plt.figure(figsize=(20,6))
@@ -127,7 +127,6 @@ def plot_metrics(pitch,signal_in,signal_out,harmonics,filters,sr,frame_size,pitc
     ax_level.plot(times,level,label='Reconstructed')
     
     ax_wave.plot(signal_in[:1024],alpha=0.8,color='k',linewidth=0.6)
-
     ax_wave.plot(signal_out[:1024],linewidth=0.6)
     
     ax_pitch.set_ylabel('Pitch (Hz)')

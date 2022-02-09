@@ -6,8 +6,8 @@ from deep_eurorack_control.config import settings
 
 def get_pitch(signal,sr,frame_size):
     step_size = int(1000*frame_size/sr)
-    pitch = crepe.predict(signal,sr,viterbi=True,verbose=False,step_size=step_size)[1][:-1]
-    return(pitch)
+    pitch = crepe.predict(signal,sr,viterbi=True,verbose=False,step_size=step_size)[1:]
+    return(pitch[0][:-1],pitch[1][:-1])
 
 def get_loudness(signal,sr,frame_size,n_fft):
     stft = librosa.stft(signal,hop_length=frame_size,n_fft=n_fft,win_length=1024)[:,:-1]

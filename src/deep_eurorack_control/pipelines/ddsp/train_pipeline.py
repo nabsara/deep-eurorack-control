@@ -14,10 +14,11 @@ class DDSP_Pipeline:
         n_harmonics,
         n_bands,
         residual,
-        n_z
+        n_z,
+        pitch_estim
         
     ):
-        self.model = DDSP(sr,frame_size,n_harmonics,n_bands,residual,n_z)
+        self.model = DDSP(sr,frame_size,n_harmonics,n_bands,residual,n_z,pitch_estim)
         
         self.dataset = NSynth_ddsp(dataset_dir)
 
