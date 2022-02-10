@@ -43,5 +43,5 @@ def nsynth_data_loader(batch_size, data_dir=settings.DATA_DIR, audio_dir=setting
 
     # Define DataLoaders
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=num_threads)
-    valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=batch_size, shuffle=True, num_workers=num_threads)
+    valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=batch_size, shuffle=False, num_workers=num_threads)
     return train_loader, valid_loader
