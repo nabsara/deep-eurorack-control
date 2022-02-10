@@ -80,21 +80,15 @@ class NoiseSynthesizer(nn.Module):
             nn.LeakyReLU(negative_slope=0.2)
         )
         self.conv3 = nn.Sequential(
-            nn.Conv1d(in_dim, in_dim, 3, stride=ratios[2], padding=1),
-            nn.LeakyReLU(negative_slope=0.2)
-        )
-        self.conv4 = nn.Sequential(
             nn.Conv1d(in_dim, out_dim * noise_bands, 3, stride=ratios[-1], padding=1),
             nn.LeakyReLU(negative_slope=0.2)  # cf. schema
         )
 
     def forward(self, x):
-        # TODO: add white noise + filter
         # x = self.net(x)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
-        x = self.conv4(x)
 
         amp = mod_sigmoid(x - 5)
         amp = amp.permute(0, 2, 1)
@@ -222,9 +216,8 @@ class Decoder(nn.Module):
         loudness = self.loudness(x_dec)
 
         if self.use_noise:
-            # TODO: FIX NoiseSynthesizer forward
             noise = self.noise_synth(x_dec)
-            output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise
+            output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise[:, :, :waveform.shape[-1]]
         else:
             output = torch.tanh(waveform) * mod_sigmoid(loudness)
         return output
