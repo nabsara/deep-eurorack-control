@@ -84,7 +84,7 @@ def train_mnist_vae(
 )
 @click.option(
     "--n_band",
-    default=1,
+    default=16,
     help="Number of bands in the multiband signal decomposition (pqmf)",
 )
 @click.option(
@@ -112,6 +112,7 @@ def train_mnist_vae(
     default=16000,
     help="sampling rate",
 )
+@click.option("--noise", is_flag=True)
 def train_rave(
     data_dir,
     audio_dir,
@@ -123,7 +124,8 @@ def train_rave(
     learning_rate,
     display_step,
     n_epoch_warmup,
-    sampling_rate
+    sampling_rate,
+    noise
 ):
     print(locals())
     pipeline = RAVEPipeline(
@@ -135,7 +137,8 @@ def train_rave(
         n_band=n_band,
         latent_dim=128,
         hidden_dim=64,
-        sampling_rate=sampling_rate
+        sampling_rate=sampling_rate,
+        use_noise=noise
     )
     pipeline.train(
         learning_rate=learning_rate,

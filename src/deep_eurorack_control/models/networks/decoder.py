@@ -71,9 +71,32 @@ class NoiseSynthesizer(nn.Module):
 
         self.net = nn.Sequential(*net)
 
+        self.conv1 = nn.Sequential(
+            nn.Conv1d(in_dim, in_dim, 3, stride=ratios[0], padding=1),
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv1d(in_dim, in_dim, 3, stride=ratios[1], padding=1),
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        self.conv3 = nn.Sequential(
+            nn.Conv1d(in_dim, in_dim, 3, stride=ratios[2], padding=1),
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        self.conv4 = nn.Sequential(
+            nn.Conv1d(in_dim, out_dim * noise_bands, 3, stride=ratios[-1], padding=1),
+            nn.LeakyReLU(negative_slope=0.2)  # cf. schema
+        )
+
     def forward(self, x):
         # TODO: add white noise + filter
-        amp = mod_sigmoid(self.net(x) - 5)
+        # x = self.net(x)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+
+        amp = mod_sigmoid(x - 5)
         amp = amp.permute(0, 2, 1)
         amp = amp.reshape(amp.shape[0], amp.shape[1], self.data_size, -1)
 
@@ -87,10 +110,13 @@ class NoiseSynthesizer(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, data_size, latent_dim=128, hidden_dim=64, noise_ratios=[4, 4, 4], noise_bands=5):
+    def __init__(self, data_size, latent_dim=128, hidden_dim=64, noise_ratios=[4, 4, 4], noise_bands=5, use_noise=False):
         super(Decoder, self).__init__()
 
-        ratios = [4, 4, 4, 2]
+        self.use_noise = use_noise
+
+        # ratios = [4, 4, 4, 2]
+        ratios = [2, 4, 4, 4]
 
         # 1st conv layer
         net = [nn.Sequential(
@@ -123,10 +149,10 @@ class Decoder(nn.Module):
         self.up1 = UpSamplingLayer(
                     in_dim=2**(len(ratios) - 0) * hidden_dim,
                     out_dim=2**(len(ratios) - (0 + 1)) * hidden_dim,
-                    kernel_size=2 * 4 + 1,
-                    stride=4,
-                    padding=3,
-                    out_pad=1,
+                    kernel_size=2 * 2 + 1,
+                    stride=2,
+                    padding=2,
+                    # out_pad=1,
                 )
         self.res1 = ResidualStack(dim=2**(len(ratios) - (0 + 1)) * hidden_dim)
         self.up2 = UpSamplingLayer(
@@ -134,7 +160,7 @@ class Decoder(nn.Module):
                     out_dim=2**(len(ratios) - (1 + 1)) * hidden_dim,
                     kernel_size=2 * 4 + 1,
                     stride=4,
-                    padding=3,
+                    padding=4,
                     out_pad=1,
                 )
         self.res2 = ResidualStack(dim=2**(len(ratios) - (1 + 1)) * hidden_dim)
@@ -150,9 +176,9 @@ class Decoder(nn.Module):
         self.up4 = UpSamplingLayer(
                     in_dim=2**(len(ratios) - 3) * hidden_dim,
                     out_dim=2**(len(ratios) - (3 + 1)) * hidden_dim,
-                    kernel_size=2 * 2 + 1,
-                    stride=2,
-                    padding=2,
+                    kernel_size=2 * 4 + 1,
+                    stride=4,
+                    padding=3,
                     out_pad=1
                 )
         self.res4 = ResidualStack(dim=2**(len(ratios) - (3 + 1)) * hidden_dim)
@@ -194,9 +220,11 @@ class Decoder(nn.Module):
 
         waveform = self.waveform(x_dec)
         loudness = self.loudness(x_dec)
-        # output = waveform * loudness
 
-        # TODO: implement NoiseSynthesizer forward
-        noise = self.noise_synth(x_dec)
-        output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise
+        if self.use_noise:
+            # TODO: FIX NoiseSynthesizer forward
+            noise = self.noise_synth(x_dec)
+            output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise
+        else:
+            output = torch.tanh(waveform) * mod_sigmoid(loudness)
         return output

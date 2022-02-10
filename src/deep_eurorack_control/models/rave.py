@@ -15,7 +15,7 @@ from deep_eurorack_control.helpers.data_viz import plot_metrics
 
 class RAVE:
 
-    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=16000):
+    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=16000, use_noise=False):
 
         self.model_name = "n_synth_rave"
         self.sampling_rate = sampling_rate
@@ -41,7 +41,10 @@ class RAVE:
         self.decoder = Decoder(
             data_size=data_size,
             latent_dim=latent_dim,
-            hidden_dim=hidden_dim
+            hidden_dim=hidden_dim,
+            noise_ratios=[4, 4, 4],
+            noise_bands=5,
+            use_noise=use_noise
         ).to(settings.device)
         self.discriminator = Discriminator().to(settings.device)
 
