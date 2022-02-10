@@ -286,8 +286,8 @@ class RAVE:
                     x = x.to(settings.device)
                     y, loss = self.validation_step(x)
                     if len(x_eval) < nb_examples:
-                        x_eval.append(x[0].detach().cpu().numpy())
-                        y_eval.append(y[0].detach().cpu().numpy())
+                        x_eval.append(np.squeeze(x[0].detach().cpu().numpy()))
+                        y_eval.append(np.squeeze(y[0].detach().cpu().numpy()))
                     valid_loss_display += loss.item()
                     it_display += 1
                 print(
