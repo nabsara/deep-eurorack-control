@@ -103,10 +103,7 @@ class DDSP:
                     pitch = self.decoder_pitch(pitch_avg,res)
                 else:
                     pitch=pitch_true
-                
-                # print(pitch_conf[0])
-                # print(pitch[0])
-                # print(pitch_true[0])
+
                 harmonics,filters = self.decoder(pitch,loud,res)
                 
                 signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)

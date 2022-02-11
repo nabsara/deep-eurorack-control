@@ -4,9 +4,9 @@ import numpy as np
 import torch
 from deep_eurorack_control.config import settings
 
-def get_pitch(signal,sr,frame_size):
+def get_pitch(signal,sr,frame_size,print=False):
     step_size = int(1000*frame_size/sr)
-    pitch = crepe.predict(signal,sr,viterbi=True,verbose=False,step_size=step_size)[1:]
+    pitch = crepe.predict(signal,sr,viterbi=True,verbose=print,step_size=step_size)[1:]
     return(pitch[0][:-1],pitch[1][:-1])
 
 def get_loudness(signal,sr,frame_size,n_fft):
@@ -31,6 +31,7 @@ def h_synth(f0,amps,sr):
 def noise_synth(H,frame_size):
     H = torch.stack([H,torch.zeros_like(H)],-1)
     H = torch.view_as_complex(H)
+    
     h = torch.fft.irfft(H)
     h = torch.roll(h,int(h.shape[-1]//2))
     size_dif = frame_size-h.shape[-1]
