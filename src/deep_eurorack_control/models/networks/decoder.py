@@ -146,7 +146,7 @@ class Decoder(nn.Module):
                     kernel_size=2 * 2 + 1,
                     stride=2,
                     padding=2,
-                    # out_pad=1,
+                    out_pad=1,
                 )
         self.res1 = ResidualStack(dim=2**(len(ratios) - (0 + 1)) * hidden_dim)
         self.up2 = UpSamplingLayer(
@@ -154,7 +154,7 @@ class Decoder(nn.Module):
                     out_dim=2**(len(ratios) - (1 + 1)) * hidden_dim,
                     kernel_size=2 * 4 + 1,
                     stride=4,
-                    padding=4,
+                    padding=3,
                     out_pad=1,
                 )
         self.res2 = ResidualStack(dim=2**(len(ratios) - (1 + 1)) * hidden_dim)
@@ -200,6 +200,9 @@ class Decoder(nn.Module):
              noise_bands=noise_bands
         )
 
+    def set_use_noise(self, b: bool):
+        self.use_noise = b
+
     def forward(self, x):
         # x_dec = self.net(x)
         x = self.conv1(x)
@@ -217,7 +220,7 @@ class Decoder(nn.Module):
 
         if self.use_noise:
             noise = self.noise_synth(x_dec)
-            output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise[:, :, :waveform.shape[-1]]
+            output = torch.tanh(waveform) * mod_sigmoid(loudness) + noise
         else:
             output = torch.tanh(waveform) * mod_sigmoid(loudness)
         return output

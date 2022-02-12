@@ -2,6 +2,7 @@ import os
 import json
 import scipy.io.wavfile
 import torch
+import torch.nn.functional
 import librosa
 from torch.utils.data import Dataset
 import numpy as np
@@ -30,5 +31,10 @@ class NSynthDataset(Dataset):
         if self.transform:
             audio = self.transform(audio)
         pitch = self.audio_labels[self.audio_name_list[index]]['pitch']
-        return audio, pitch
+        # pad the audio signal with zeros to get a length equals to power of two
+        # here sampling rate is 16000 Hz and we have 4 seconds samples so the
+        # audio length is 64000. The nearest power of two is 2**16=65536
+        zeros_length = 2 ** 16 - audio.shape[-1]
+        audio_pad = torch.nn.functional.pad(input=audio, pad=(0, zeros_length), mode='constant', value=0.0)
+        return audio_pad, pitch
 

@@ -17,8 +17,9 @@ class RAVE:
 
     def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=16000, use_noise=False):
 
-        self.model_name = "n_synth_rave"
+        self.model_name = f"n_synth_rave__n_band_{n_band}__latent_{latent_dim}__sr_{sampling_rate}__noise_{use_noise}"
         self.sampling_rate = sampling_rate
+        self.use_noise = use_noise
 
         # n_taps=4
         # self.multi_band_decomposition = PQMF(
@@ -29,7 +30,7 @@ class RAVE:
         self.multi_band_decomposition = PQMF(
             attenuation=100,
             n_band=n_band,
-            polyphase=False
+            polyphase=True
         )
 
         data_size = n_band
@@ -44,7 +45,7 @@ class RAVE:
             hidden_dim=hidden_dim,
             noise_ratios=[4, 4, 4],
             noise_bands=5,
-            use_noise=use_noise
+            use_noise=False  # no noise synth representation learning training stage 1
         ).to(settings.device)
         self.discriminator = Discriminator().to(settings.device)
 
@@ -248,6 +249,8 @@ class RAVE:
         for epoch in range(n_epochs):
             if epoch == n_epoch_warmup:
                 self.warmed_up = True
+                # add noise synth to decoder output for adversarial training
+                self.decoder.set_use_noise(self.use_noise)
             cur_step = 0
             it_display = 0
             valid_loss_display = 0
