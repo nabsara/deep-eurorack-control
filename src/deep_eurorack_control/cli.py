@@ -138,7 +138,8 @@ def train_rave(
         latent_dim=128,
         hidden_dim=64,
         sampling_rate=sampling_rate,
-        use_noise=noise
+        use_noise=noise,
+        init_weights=True
     )
     pipeline.train(
         learning_rate=learning_rate,
