@@ -6,6 +6,8 @@ from tqdm import tqdm
 import time
 from torch.utils.tensorboard import SummaryWriter
 
+from einops import rearrange
+
 from deep_eurorack_control.config import settings
 from deep_eurorack_control.models.networks import Encoder, Decoder, Discriminator
 from deep_eurorack_control.models.networks.pqmf_antoine import PQMF
@@ -78,6 +80,54 @@ class RAVE:
         kl_div = torch.mean(-0.5 * torch.sum(1 - sigma - torch.pow(mu, 2) + torch.log(sigma), dim=1))
         return kl_div
 
+    ## TEMP
+    @staticmethod
+    def multiscale_stft(signal, scales, overlap):
+        """
+        Compute a stft on several scales, with a constant overlap value.
+        Parameters
+        ----------
+        signal: torch.Tensor
+            input signal to process ( B X C X T )
+
+        scales: list
+            scales to use
+        overlap: float
+            overlap between windows ( 0 - 1 )
+        """
+        signal = rearrange(signal, "b c t -> (b c) t")
+        stfts = []
+        for s in scales:
+            S = torch.stft(
+                signal,
+                s,
+                int(s * (1 - overlap)),
+                s,
+                torch.hann_window(s).to(signal),
+                True,
+                normalized=True,
+                return_complex=True,
+            ).abs()
+            stfts.append(S)
+        return stfts
+
+    def lin_distance(self, x, y):
+        return torch.norm(x - y) / torch.norm(x)
+
+    def log_distance(self, x, y):
+        return abs(torch.log(x + 1e-7) - torch.log(y + 1e-7)).mean()
+
+    def distance(self, x, y):
+        scales = [2048, 1024, 512, 256, 128]
+        x = self.multiscale_stft(x, scales, .75)
+        y = self.multiscale_stft(y, scales, .75)
+
+        lin = sum(list(map(self.lin_distance, x, y)))
+        log = sum(list(map(self.log_distance, x, y)))
+
+        return lin + log
+    ##
+
     def reparametrize(self, mean, scale):
         std = torch.nn.functional.softplus(scale) + 1e-4
         var = std * std
@@ -118,14 +168,19 @@ class RAVE:
         y = self.decoder(z)
 
         # compute reconstruction loss ie. multiscale spectral distance
-        spectral_loss = self.spectral_dist_criterion(x, y)
+        # spectral_loss = self.spectral_dist_criterion(x, y)
+        # TEST Antoine Spectral distance
+        spectral_loss = self.distance(x, y)
+
         # total loss
         loss_vae = torch.mean(spectral_loss + beta * kl_loss)
 
         # inverse multi band decomposition (pqmf -1) --> recomposition
         x = self.multi_band_decomposition.inverse(x)
         y = self.multi_band_decomposition.inverse(y)
-        spectral_loss += self.spectral_dist_criterion(x, y)  # WHY ???
+        # spectral_loss += self.spectral_dist_criterion(x, y)  # WHY ???
+        # TEST Antoine Spectral distance
+        spectral_loss += self.distance(x, y)
 
         # STEP 2:
         if self.warmed_up:
