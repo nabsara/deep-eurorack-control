@@ -3,7 +3,7 @@ import os
 from deep_eurorack_control.config import settings
 
 from deep_eurorack_control.pipelines.ddsp.train_pipeline import DDSP_Pipeline
-from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_dataset
+from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_dataset,preprocess_dataset_violin
 
 @click.option(
     "--sr",
@@ -12,7 +12,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--dataset_dir",
-    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\pitch_conf_test",
+    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\soloviolin_test",
     help="Dataset Location",
 )
 @click.option(
@@ -67,7 +67,7 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
 )
 @click.option(
     "--raw_data_dir",
-    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\nsynth-test\audio",
+    default=r"C:\Users\NILS\Documents\ATIAM\PAM\Datasets\UMRP\All",
     help="Raw Dataset location(if preprocess==True)",
 )
 @click.option(
@@ -85,15 +85,10 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
     default=16,
     help="Residual latent space dim",
 )
-@click.option(
-    "--pitch_estim",
-    default=True,
-    help="Pitch estimation on",
-)
-def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,residual,n_z,pitch_estim):
+def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,residual,n_z):
     if preprocess==True:
-        preprocess_dataset(raw_data_dir,dataset_dir,filters,sr,frame_size,nb_files=None)
-    pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z,pitch_estim)   
+        preprocess_dataset_violin(raw_data_dir,dataset_dir,sr,frame_size)
+    pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z)   
     pipeline.train(lr,batch_size,n_epochs,display_step,logdir,alpha)
     
     

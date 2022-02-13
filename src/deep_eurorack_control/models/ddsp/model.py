@@ -6,14 +6,14 @@ import torchaudio
 from torch.utils.tensorboard import SummaryWriter
 from deep_eurorack_control.config import settings
 
-from deep_eurorack_control.models.ddsp.decoder import Decoder,DecoderPitch
+from deep_eurorack_control.models.ddsp.decoder import Decoder
 from deep_eurorack_control.models.ddsp.encoder import Encoder
 
 from deep_eurorack_control.models.ddsp.ops import *
 from deep_eurorack_control.helpers.ddsp import plot_metrics
 
 class DDSP:
-    def __init__(self,sr,frame_size,n_harmonics,n_bands,residual=False,n_z=16,pitch_estim=False):
+    def __init__(self,sr,frame_size,n_harmonics,n_bands,residual=False,n_z=16):
 
         self.sr = sr
         self.frame_size = frame_size
@@ -21,14 +21,11 @@ class DDSP:
         self.n_bands = n_bands
         self.scales = [2048,1024,512,256,128,64]
         self.residual = residual
-        self.pitch_estim = pitch_estim
         self.n_z = n_z
         self.n_mfcc = 30
         
         
-        self.decoder = Decoder(self.n_harmonics,self.n_bands,self.residual,self.n_z).to(settings.device)
-        if pitch_estim:
-            self.decoder_pitch = DecoderPitch(self.n_z).to(settings.device)
+        self.decoder = Decoder(self.sr,self.n_harmonics,self.n_bands,self.residual,self.n_z).to(settings.device)
         
         if self.residual==True:
             self.encoder = Encoder(self.n_z,self.n_mfcc).to(settings.device)
@@ -36,14 +33,10 @@ class DDSP:
         
     def _init_optimizer(self, learning_rate,alpha):
         if self.residual==True:
-            if self.pitch_estim:
-                params = list(self.encoder.parameters()) + list(self.decoder.parameters())+ list(self.decoder_pitch.parameters())
-            else:
-                params = list(self.encoder.parameters()) + list(self.decoder.parameters())
+            params = list(self.encoder.parameters()) + list(self.decoder.parameters())
         else:
             params =self.decoder.parameters()
             
-        # params = list(self.encoder.parameters()) + list(self.decoder_pitch.parameters()) 
         self._opt = torch.optim.Adam(
             params, lr=learning_rate)
         schedule = self._init_schedule(alpha)
@@ -51,11 +44,6 @@ class DDSP:
     
     def _compute_loss_spec(self,signal_in,signal_out,alpha=1):
         loss_batch = spectral_loss(self.scales,signal_in,signal_out,alpha)
-        return(torch.mean(loss_batch))
-    
-    def _compute_loss_f0(self,pitch_true,pitch_conf,pitch_estim):
-        
-        loss_batch = torch.abs(pitch_true-pitch_estim)*(pitch_conf>0.6)
         return(torch.mean(loss_batch))
     
     def _init_schedule(self,alpha):
@@ -80,7 +68,7 @@ class DDSP:
         )
         
         losses=[]
-        display_loss =torch.tensor([0,0,0]).float()
+        display_loss =0
         it_display = 0
         print(settings.device)
 
@@ -97,26 +85,20 @@ class DDSP:
                     res = self.encoder(mfcc.permute(0,2,1))
                 else:
                     res=None
-                
-                if self.pitch_estim ==True:
-                    pitch_avg = pitch_true[:,10:30].mean(axis=1,keepdims=True)*torch.ones_like(pitch_true)
-                    pitch = self.decoder_pitch(pitch_avg,res)
-                else:
-                    pitch=pitch_true
+
+                pitch = pitch_true
 
                 harmonics,filters = self.decoder(pitch,loud,res)
                 
-                signal_out = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
+                signal_out,_ = generate_signal(pitch,harmonics,filters,self.frame_size,self.sr)
                 
-                f0_loss =  self._compute_loss_f0(pitch_true,pitch_conf,pitch)
                 spec_loss = self._compute_loss_spec(signal_in,signal_out)
-                loss = f0_loss+spec_loss
+                loss = spec_loss
                 loss.backward()
               
                 self._opt.step()
-                loss_arr = [loss.item(),spec_loss.item(),f0_loss.item()]
-                losses.append(loss_arr)
-                display_loss += torch.tensor(loss_arr)
+                losses.append(loss.item())
+                display_loss += loss.item()
                 it_display+=1 
                 it+=1
                 
@@ -124,24 +106,14 @@ class DDSP:
                 if (it-1) % display_step == 0: #or (it== len(dataloader) - 1):
                     print(
                         f"\nEpoch: [{epoch}/{n_epochs}] \tStep: [{it}/{len(dataloader)}]"
-                        f"\tTime: {time.time() - start} (s)\tSpec_Loss: {display_loss[1]/it_display}\tf0_Loss: {display_loss[2]/it_display}"
+                        f"\tTime: {time.time() - start} (s)\tLoss: {display_loss/it_display}"
                     )
                     
                     writer.add_scalar(
                             "Total Loss",
-                            display_loss[0] / it_display,
+                            display_loss / it_display,
                             epoch * len(dataloader) + it,
-                        )
-                    writer.add_scalar(
-                            "Spectral Loss",
-                            display_loss[1] / it_display,
-                            epoch * len(dataloader) + it,
-                        )
-                    writer.add_scalar(
-                            "Frequency Loss",
-                            display_loss[2] / it_display,
-                            epoch * len(dataloader) + it,
-                        )                                    
+                        )                            
                                         
                     display_loss = 0 
                     it_display = 0 
@@ -151,12 +123,10 @@ class DDSP:
                         rec_audio = signal_out.detach().cpu()
                         rec_harmonics = harmonics.detach().cpu().numpy()
                         rec_filters = filters.detach().cpu().numpy()
-                        pitch_in = pitch_true.detach().cpu().numpy()
-                        pitch_out = pitch.detach().cpu().numpy()
-                        pitch_fed = pitch_avg.detach().cpu().numpy()
+                        pitch_true = pitch_true.detach().cpu().numpy()
 
                         for j in range(2):
-                            figure = plot_metrics(pitch_in[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size,pitch_out[j],pitch_fed[j])
+                            figure = plot_metrics(pitch_true[j],real_audio[j].numpy(),rec_audio[j].numpy(),rec_harmonics[j],rec_filters[j],self.sr,self.frame_size)
                             writer.add_audio(
                                         "Reconstructed Sounds/" + str(j),
                                         rec_audio[j],
