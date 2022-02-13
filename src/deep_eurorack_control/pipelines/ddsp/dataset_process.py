@@ -58,7 +58,7 @@ def preprocess_dataset_violin(raw_data_dir,dataset_dir,sr,frame_size,len_samples
     audio_data = np.empty((0,audio_size))
     print(audio_data.shape)
     print('Reading Files')
-    for file in tqdm(files[:2]):
+    for file in tqdm(files):
         audio_file = os.path.join(raw_data_dir,file)
         signal,_ = librosa.load(audio_file,sr)
         
