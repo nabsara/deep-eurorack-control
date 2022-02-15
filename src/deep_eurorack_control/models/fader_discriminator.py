@@ -100,6 +100,8 @@ class FaderDiscriminator(nn.Module):
         net.append(nn.Linear(dim_in, n_attr * n_classes))
         net.append(nn.Sigmoid())
 
+        self.n_classes = n_classes
+        self.n_attr = n_attr
         self.net = nn.Sequential(*net)
 
     def forward(self, z):
@@ -107,7 +109,7 @@ class FaderDiscriminator(nn.Module):
         for layer in self.net:
             z = layer(z)
             outputs.append(z)
-
+        outputs = outputs.reshape(outputs.size(0), self.n_attr, self.n_classes)   
         return outputs        
 
 

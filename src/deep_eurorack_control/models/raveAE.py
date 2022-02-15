@@ -124,6 +124,7 @@ class RaveAE:
             loss_feature_matching_distance = 0
             loss_adv = 0
             loss_disc = 0
+            
             for feat_real, feat_fake in zip(real_features, fake_features):
                 # Compute Feature matching distance
                 loss_feature_matching_distance += lambda_fm * self.feat_matching_criterion(feat_real, feat_fake)
