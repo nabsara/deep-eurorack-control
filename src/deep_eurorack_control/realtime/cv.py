@@ -28,7 +28,7 @@ class CV(threading.Thread):
         self.active_CVs = [False, False, False, False, False, False]
         self.is_playing = False
 
-        self.default_enveloppes = self.load_default_enveloppes(default_enveloppes_folder)
+        # self.default_enveloppes = self.load_default_enveloppes(default_enveloppes_folder)
         print("[+] - Default enveloppes loaded")
 
         ########################
@@ -79,10 +79,10 @@ class CV(threading.Thread):
         - Replace by default enveloppes for inactive CVs
         """
         res = {}
-        for idx, key in enumerate(["pitch", "loudness", "descriptors"]):
-            if not self.active_CVs[idx]:
-                res[key] = self.default_enveloppes[key][:self.cv_values_buffer_size].unsqueeze(0)
-            else:
+        for idx, key in enumerate(["pitch", "loudness"]):
+            # if not self.active_CVs[idx]:
+            #     res[key] = self.default_enveloppes[key][:self.cv_values_buffer_size].unsqueeze(0)
+            # else:
                 print(f"[ ] - Using CV values for: {key}")
                 res[key] = torch.from_numpy(
                     np.expand_dims(
@@ -111,9 +111,9 @@ class CV(threading.Thread):
         new_cv_values = tediumControl.adc_bang(self.spifd)  # DEBUG
         # new_cv_values = [0, 0, 0, 0, 0, 4000]  # DEBUG
         self.update_CV_values_buffer(new_cv_values)
-        self.detect_active_cvs()
+        # self.detect_active_cvs()
         # Play only if the 6th CV value is > 2000
-        if new_cv_values[5] > 2000:
+        if new_cv_values[2] > 2000:
             if not self.is_playing:
                 self.is_playing = True
                 # If there is still something in the queue it's outdated, remove everything
@@ -128,11 +128,11 @@ class CV(threading.Thread):
             if self.is_playing:
                 self.is_playing = False
 
-    def load_default_enveloppes(self, default_enveloppes_folder):
-        pitch = torch.from_numpy(np.load(f"./{default_enveloppes_folder}/pitch.npy"))
-        pitch = pitch[0][self.start_idx:self.end_idx]
-        loudness = torch.from_numpy(np.load(f"./{default_enveloppes_folder}/loudness.npy"))
-        loudness = loudness[0][self.start_idx:self.end_idx]
-        descriptors = torch.from_numpy(np.load(f"./{default_enveloppes_folder}/descriptors.npy"))
-        descriptors = descriptors[0][self.start_idx:self.end_idx]
-        return {"pitch": pitch, "loudness": loudness, "descriptors": descriptors}
+    # def load_default_enveloppes(self, default_enveloppes_folder):
+    #     pitch = torch.from_numpy(np.load(f"./{default_enveloppes_folder}/pitch.npy"))
+    #     pitch = pitch[0][self.start_idx:self.end_idx]
+    #     loudness = torch.from_numpy(np.load(f"./{default_enveloppes_folder}/loudness.npy"))
+    #     loudness = loudness[0][self.start_idx:self.end_idx]
+    #     descriptors = torch.from_numpy(np.load(f"./{default_enveloppes_folder}/descriptors.npy"))
+    #     descriptors = descriptors[0][self.start_idx:self.end_idx]
+    #     return {"pitch": pitch, "loudness": loudness, "descriptors": descriptors}
