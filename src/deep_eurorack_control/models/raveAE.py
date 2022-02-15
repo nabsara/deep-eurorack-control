@@ -4,12 +4,15 @@ import torch.distributions as distributions
 import numpy as np
 from tqdm import tqdm
 import time
+import random
 from torch.utils.tensorboard import SummaryWriter
 
 from deep_eurorack_control.config import settings
-from deep_eurorack_control.models.networks import EncoderAE, Decoder, Discriminator
+from deep_eurorack_control.models.networks import Decoder, Discriminator
+from deep_eurorack_control.models.networks.encoderAE import EncoderAE
 from deep_eurorack_control.models.networks.pqmf_antoine import PQMF
 from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeLoss, FeatureMatchingLoss
+from deep_eurorack_control.models.fader_discriminator import FaderLoss, FaderDiscriminator
 
 
 class RaveAE:
@@ -45,18 +48,22 @@ class RaveAE:
         ).to(settings.device)
         self.discriminator = Discriminator().to(settings.device)
 
+        self.fader_discriminator = FaderDiscriminator().to(settings.device)
+
         self.warmed_up = False
 
     def _init_optimizer(self, learning_rate, beta_1=0.5, beta_2=0.9):
         param_ae = list(self.encoder.parameters()) + list(self.decoder.parameters())
         self.ae_opt = torch.optim.Adam(param_ae, lr=learning_rate, betas=(beta_1, beta_2))
         self.disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(beta_1, beta_2))
+        self.fader_disc_opt = torch.optim.Adam(self.discriminator.parameters(), lr=learning_rate, betas=(beta_1, beta_2))
 
     def _init_criterion(self):
         self.spectral_dist_criterion = SpectralLoss()
         self.disc_criterion = HingeLoss()
         self.gen_criterion = LinearLoss()
         self.feat_matching_criterion = FeatureMatchingLoss()
+        self.fader_criterion = FaderLoss()
 
     def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
         """Inside a Batch"""
@@ -70,7 +77,7 @@ class RaveAE:
         # if train step 1 repr learning encoder.train()
         # else (train step 2 adversarial) freeze encoder encoder.eval()
         if self.warmed_up:
-            self.encoder.eval()
+            self.encoder.eval() # freeze?
         else:
             self.encoder.train()
         self.decoder.train()
@@ -85,12 +92,27 @@ class RaveAE:
         # compute reconstruction loss ie. multiscale spectral distance
         spectral_loss = self.spectral_dist_criterion(x, y)
         # total loss
-        loss_vae = torch.mean(spectral_loss)
+        loss_ae = torch.mean(spectral_loss)
 
         # inverse multi band decomposition (pqmf -1) --> recomposition
         x = self.multi_band_decomposition.inverse(x)
         y = self.multi_band_decomposition.inverse(y)
         spectral_loss += self.spectral_dist_criterion(x, y)  # WHY ???
+
+        # encode
+        # lat dis z res1
+        # lat dis y 
+        z_fader = self.fader_discriminator(z)
+
+        # compute loss
+        attributes = []
+        keys = []
+        key_indices = random.sample(keys, 8) # if batch_size = 8
+        f_style_cls = []
+        class_label = torch.LongTensor([[f_style_cls[attr + '/' + key] for attr in attributes] for key in key_indices], settings.device).reshape(8, -1)
+
+        loss_fader = self.fader_criterion(z_fader, class_label)
+
 
         # STEP 2:
         if self.warmed_up:
@@ -119,9 +141,9 @@ class RaveAE:
             loss_adv = torch.tensor(0.).to(x)
 
         # FINALLY:
-        # compute vae (decoder-generator) loss
+        # compute ae (decoder-generator) loss
         loss_gen = loss_feature_matching_distance + loss_adv
-        loss_vae_gen = loss_vae + loss_gen
+        loss_total = loss_ae + loss_gen + loss_fader
 
         # optimizer steps:
         # Before the backward pass, zero all of the network gradients
@@ -136,22 +158,23 @@ class RaveAE:
             self.disc_opt.step()
         else:
             self.ae_opt.zero_grad()
-            loss_vae_gen.backward(retain_graph=True)
+            loss_total.backward(retain_graph=True)
             self.ae_opt.step()
 
         losses = {
-            "loss_vae": loss_vae.item(),
+            "loss_ae": loss_ae.item(),
             "loss_multiscale_spectral_dist": spectral_loss.item(),
             "loss_gen": loss_gen.item(),
             "loss_feature_matching_dist": loss_feature_matching_distance.item(),
             "loss_adv": loss_adv.item(),
-            "loss_total_vae_gen": loss_vae_gen.item(),
+            "loss_total_ae_gen": loss_total.item(),
             "loss_disc": loss_disc.item(),
+            "loss_fader_disc": loss_fader.item(),
         }
         return losses
 
     def validation_step(self, data_current_batch, beta=0.1,):
-        # For VAE training step 1 repr learning
+        # For AE training step 1 repr learning
         # model.eval() mode
         self.encoder.eval()
         self.decoder.eval()
@@ -163,6 +186,7 @@ class RaveAE:
 
         # 2. Encode data
         z = self.encoder(x)
+        z_fader = self.fader_discriminator(z)
 
         # 3. Decode latent space samples
         y = self.decoder(z)
@@ -193,13 +217,14 @@ class RaveAE:
         train_losses = {
             "it": [],
             "epoch": [],
-            "loss_vae": [],
+            "loss_ae": [],
             "loss_multiscale_spectral_dist": [],
             "loss_gen": [],
             "loss_feature_matching_dist": [],
             "loss_adv": [],
-            "loss_total_vae_gen": [],
+            "loss_total_ae_gen": [],
             "loss_disc": [],
+            "loss_fader_disc": [], 
         }
         valid_loss = []
         it = 0  # number of batch iterations updated at the end of the DataLoader for loop
@@ -232,7 +257,7 @@ class RaveAE:
 
                     print(
                         f"\nEpoch: [{epoch}/{n_epochs}] \tStep: [{cur_step}/{len(train_loader)}]"
-                        f"\tTime: {time.time() - start} (s) \tTotal_loss: {train_losses['loss_total_vae_gen'][-1]}"
+                        f"\tTime: {time.time() - start} (s) \tTotal_loss: {train_losses['loss_total_ae_gen'][-1]}"
                     )
                     losses_display = np.zeros(len(train_losses.keys()) - 2)
                     it_display = 0
@@ -279,9 +304,9 @@ class RaveAE:
                         "encoder_state_dict": self.encoder.state_dict(),
                         "decoder_state_dict": self.decoder.state_dict(),
                         "optimizer_state_dict": self.ae_opt.state_dict(),
-                        "loss": train_losses['loss_total_vae_gen'][-1]
+                        "loss": train_losses['loss_total_ae_gen'][-1]
                     },
-                    os.path.join(models_dir, f"{model_filename}__vae.pt")
+                    os.path.join(models_dir, f"{model_filename}__ae.pt")
                 )
                 if self.warmed_up:
                     torch.save(
