@@ -65,7 +65,7 @@ class RaveAE:
         self.feat_matching_criterion = FeatureMatchingLoss()
         self.fader_criterion = FaderLoss()
 
-    def train_step(self, data_current_batch, step, beta=0.1, lambda_fm=10):
+    def train_step(self, data_current_batch, params_current_batch, step, beta=0.1, lambda_fm=10):
         """Inside a Batch"""
         # STEP 1:
         x = data_current_batch.to(settings.device)
@@ -105,11 +105,16 @@ class RaveAE:
         z_fader = self.fader_discriminator(z)
 
         # compute loss
-        attributes = []
-        keys = []
-        key_indices = random.sample(keys, 8) # if batch_size = 8
-        f_style_cls = []
-        class_label = torch.LongTensor([[f_style_cls[attr + '/' + key] for attr in attributes] for key in key_indices], settings.device).reshape(8, -1)
+        #attributes = []
+        #keys = []
+        #key_indices = random.sample(keys, 8) # if batch_size = 8
+        #f_style_cls = []
+        #class_label = torch.LongTensor([[f_style_cls[attr + '/' + key] for attr in attributes] for key in key_indices], settings.device).reshape(8, -1)
+
+        #loss_fader = self.fader_criterion(z_fader, class_label)
+
+        # compute loss
+        class_label = torch.LongTensor(params_current_batch, settings.device).reshape(8, -1)
 
         loss_fader = self.fader_criterion(z_fader, class_label)
 
@@ -124,7 +129,7 @@ class RaveAE:
             loss_feature_matching_distance = 0
             loss_adv = 0
             loss_disc = 0
-            
+
             for feat_real, feat_fake in zip(real_features, fake_features):
                 # Compute Feature matching distance
                 loss_feature_matching_distance += lambda_fm * self.feat_matching_criterion(feat_real, feat_fake)
@@ -236,9 +241,9 @@ class RaveAE:
             it_display = 0
             valid_loss_display = 0
             losses_display = np.zeros(len(train_losses.keys()) - 2)
-            for x, _ in tqdm(train_loader):
+            for x, _, attr in tqdm(train_loader):
                 step = len(train_loader) * epoch + cur_step
-                cur_losses = self.train_step(x, step)
+                cur_losses = self.train_step(x, attr, step)
 
                 # keep track of the loss
                 losses_display += np.asarray(list(cur_losses.values()))
