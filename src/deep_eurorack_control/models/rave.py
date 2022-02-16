@@ -10,14 +10,18 @@ from deep_eurorack_control.config import settings
 from deep_eurorack_control.models.networks import Encoder, Decoder, Discriminator
 from deep_eurorack_control.models.networks.pqmf_antoine import PQMF
 from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeLoss, FeatureMatchingLoss
+from deep_eurorack_control.helpers.data_viz import plot_metrics
+from deep_eurorack_control.models.networks.utils import initialize_weights
 
 
 class RAVE:
 
-    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=16000):
+    def __init__(self, n_band=16, latent_dim=128, hidden_dim=64, sampling_rate=16000, use_noise=False, init_weights=False):
 
-        self.model_name = "n_synth_rave"
+        self.model_name = f"n_synth_rave__n_band_{n_band}__latent_{latent_dim}__sr_{sampling_rate}" \
+                          f"__noise_{use_noise}__init_weights_{init_weights}"
         self.sampling_rate = sampling_rate
+        self.use_noise = use_noise
 
         # n_taps=4
         # self.multi_band_decomposition = PQMF(
@@ -28,7 +32,7 @@ class RAVE:
         self.multi_band_decomposition = PQMF(
             attenuation=100,
             n_band=n_band,
-            polyphase=False
+            polyphase=True
         )
 
         data_size = n_band
@@ -40,11 +44,20 @@ class RAVE:
         self.decoder = Decoder(
             data_size=data_size,
             latent_dim=latent_dim,
-            hidden_dim=hidden_dim
+            hidden_dim=hidden_dim,
+            noise_ratios=[4, 4, 4],
+            noise_bands=5,
+            use_noise=False  # no noise synth representation learning training stage 1
         ).to(settings.device)
         self.discriminator = Discriminator().to(settings.device)
 
         self.warmed_up = False
+
+        # initialize weights
+        if init_weights:
+            self.encoder.apply(initialize_weights)
+            self.decoder.apply(initialize_weights)
+            self.discriminator.apply(initialize_weights)
 
     def _init_optimizer(self, learning_rate, beta_1=0.5, beta_2=0.9):
         param_vae = list(self.encoder.parameters()) + list(self.decoder.parameters())
@@ -114,13 +127,14 @@ class RAVE:
 
         # compute reconstruction loss ie. multiscale spectral distance
         spectral_loss = self.spectral_dist_criterion(x, y)
+
         # total loss
         loss_vae = torch.mean(spectral_loss + beta * kl_loss)
 
         # inverse multi band decomposition (pqmf -1) --> recomposition
         x = self.multi_band_decomposition.inverse(x)
         y = self.multi_band_decomposition.inverse(y)
-        spectral_loss += self.spectral_dist_criterion(x, y)  # WHY ???
+        spectral_loss += self.spectral_dist_criterion(x, y)
 
         # STEP 2:
         if self.warmed_up:
@@ -244,6 +258,8 @@ class RAVE:
         for epoch in range(n_epochs):
             if epoch == n_epoch_warmup:
                 self.warmed_up = True
+                # add noise synth to decoder output for adversarial training
+                self.decoder.set_use_noise(self.use_noise)
             cur_step = 0
             it_display = 0
             valid_loss_display = 0
@@ -278,26 +294,16 @@ class RAVE:
                 it += 1
 
             with torch.no_grad():
+                x_eval = []
+                y_eval = []
+                nb_examples = 10
                 for x, _ in tqdm(valid_loader):
                     x = x.to(settings.device)
                     y, loss = self.validation_step(x)
-
+                    if len(x_eval) < nb_examples:
+                        x_eval.append(np.squeeze(x[0].detach().cpu().numpy()))
+                        y_eval.append(np.squeeze(y[0].detach().cpu().numpy()))
                     valid_loss_display += loss.item()
-                    # add audio to tensorboard
-                    if it_display == 0:
-                        for j in range(x.shape[0]):
-                            writer.add_audio(
-                                "generated_sound/" + str(j),
-                                y,
-                                global_step=epoch * len(valid_loader) + cur_step,
-                                sample_rate=self.sampling_rate,
-                            )
-                            writer.add_audio(
-                                "ground_truth_sound/" + str(j),
-                                x,
-                                global_step=epoch * len(valid_loader) + cur_step,
-                                sample_rate=self.sampling_rate,
-                            )
                     it_display += 1
                 print(
                     f"\nEpoch: [{epoch}/{n_epochs}] \t Validation loss: {valid_loss_display / it_display}"
@@ -307,6 +313,26 @@ class RAVE:
                     valid_loss_display / it_display,
                     epoch * len(valid_loader) + cur_step,
                 )
+                # add audio to tensorboard
+                for j in range(len(x_eval)):
+                    fig_stft = plot_metrics(signal_in=x_eval[j], signal_out=y_eval[j], sr=self.sampling_rate)
+                    writer.add_audio(
+                        "ground_truth_sound/" + str(j),
+                        x_eval[j],
+                        global_step=epoch * len(valid_loader) + cur_step,
+                        sample_rate=self.sampling_rate,
+                    )
+                    writer.add_audio(
+                        "generated_sound/" + str(j),
+                        y_eval[j],
+                        global_step=epoch * len(valid_loader) + cur_step,
+                        sample_rate=self.sampling_rate,
+                    )
+                    writer.add_figure(
+                        "Output Images/" + str(j),
+                        fig_stft,
+                        global_step=epoch * len(valid_loader) + cur_step,
+                    )
                 valid_loss.append(valid_loss_display / it_display)
 
             # model checkpoints:

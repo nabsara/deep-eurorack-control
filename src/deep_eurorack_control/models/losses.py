@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-from deep_eurorack_control.config import settings
-
 
 class SpectralLoss(nn.Module):
 
@@ -12,15 +10,15 @@ class SpectralLoss(nn.Module):
         self.overlap = 0.75
 
     @staticmethod
-    def lin_distance(x, y, dim):
-        return torch.norm(x - y, dim=dim) / torch.norm(x)
+    def lin_distance(x, y):
+        return torch.norm(x - y) / torch.norm(x)
 
     @staticmethod
-    def log_distance(x, y, dim):
-        return torch.mean(torch.abs(torch.log(x + 1e-7) - torch.log(y + 1.e-7)), dim=dim)  # abs because L1 norm
+    def log_distance(x, y):
+        return torch.mean(torch.abs(torch.log(x + 1e-7) - torch.log(y + 1.e-7)))  # abs because L1 norm
 
     def forward(self, x, y):
-        spectral_dist = torch.zeros(x.shape[0]).to(settings.device)
+        spectral_dist_each_scale_list = []
         x_flat = x.reshape(-1, x.shape[2])  # to compute stft we need to flatten the band dim with the batch dim
         y_flat = y.reshape(-1, y.shape[2])
         for scale in self.scales:
@@ -46,8 +44,9 @@ class SpectralLoss(nn.Module):
             ))
             stft_x = stft_x.reshape(x.shape[0], x.shape[1], stft_x.shape[1], stft_x.shape[2]).reshape(x.shape[0], -1)
             stft_y = stft_y.reshape(y.shape[0], y.shape[1], stft_y.shape[1], stft_y.shape[2]).reshape(y.shape[0], -1)
-            spectral_dist += (self.lin_distance(stft_x, stft_y, dim=1) + self.log_distance(stft_x, stft_y, dim=1))
-        return torch.mean(spectral_dist)
+            spectral_dist = self.lin_distance(stft_x, stft_y) + self.log_distance(stft_x, stft_y)
+            spectral_dist_each_scale_list.append(spectral_dist)
+        return sum(spectral_dist_each_scale_list)
 
 
 class HingeLoss(nn.Module):
