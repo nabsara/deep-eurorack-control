@@ -85,10 +85,20 @@ from deep_eurorack_control.pipelines.ddsp.dataset_process import preprocess_data
     default=16,
     help="Residual latent space dim",
 )
-def train_ddsp(dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,residual,n_z):
+@click.option(
+    "--n_hidden",
+    default=512,
+    help="Residual latent space dim",
+)
+@click.option(
+    "--model_name",
+    default="Defaut_Name",
+    help="Residual latent space dim",
+)
+def train_ddsp(model_name,dataset_dir,sr,frame_size,n_harmonics,n_bands,lr,batch_size,n_epochs,display_step,logdir,preprocess,filters,raw_data_dir,alpha,n_hidden,residual,n_z):
     if preprocess==True:
         preprocess_dataset_violin(raw_data_dir,dataset_dir,sr,frame_size)
-    pipeline =DDSP_Pipeline(dataset_dir,sr,frame_size,n_harmonics,n_bands,residual,n_z)   
+    pipeline =DDSP_Pipeline(model_name,dataset_dir,sr,frame_size,n_harmonics,n_bands,n_hidden,residual,n_z)   
     pipeline.train(lr,batch_size,n_epochs,display_step,logdir,alpha)
     
     
