@@ -8,8 +8,9 @@ import random
 from torch.utils.tensorboard import SummaryWriter
 
 from deep_eurorack_control.config import settings
-from deep_eurorack_control.models.networks import Decoder, Discriminator
+from deep_eurorack_control.models.networks import Discriminator
 from deep_eurorack_control.models.networks.encoderAE import EncoderAE
+from deep_eurorack_control.models.networks.decoderAE import DecoderAE
 from deep_eurorack_control.models.networks.pqmf_antoine import PQMF
 from deep_eurorack_control.models.losses import SpectralLoss, LinearLoss, HingeLoss, FeatureMatchingLoss
 from deep_eurorack_control.models.fader_discriminator import FaderLoss, FaderDiscriminator
@@ -41,7 +42,7 @@ class RaveAE:
             latent_dim=latent_dim,
             hidden_dim=hidden_dim
         ).to(settings.device)
-        self.decoder = Decoder(
+        self.decoder = DecoderAE(
             data_size=data_size,
             latent_dim=latent_dim,
             hidden_dim=hidden_dim

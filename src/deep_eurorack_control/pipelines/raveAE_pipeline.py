@@ -1,8 +1,8 @@
 from deep_eurorack_control.datasets.data_loaders_fader import nsynth_data_loader_fader
-from deep_eurorack_control.models.rave import RAVE
+from deep_eurorack_control.models.raveAE import RaveAE
 
 
-class RAVEPipeline:
+class RaveAE_Pipeline:
 
     def __init__(self, data_dir, audio_dir, models_dir, batch_size, n_band=1, latent_dim=128, hidden_dim=64, sampling_rate=16000):
         self.data_dir = data_dir
@@ -16,7 +16,7 @@ class RAVEPipeline:
             audio_dir=self.audio_dir,
         )
 
-        self.model = RAVE(n_band=n_band, latent_dim=latent_dim, hidden_dim=hidden_dim, sampling_rate=sampling_rate)
+        self.model = RaveAE(n_band=n_band, latent_dim=latent_dim, hidden_dim=hidden_dim, sampling_rate=sampling_rate)
 
     def train(self, learning_rate, n_epochs, display_step, n_epoch_warmup):
         model_filename = f"{self.model.model_name}__b_{self.batch_size}__lr_{learning_rate}__e_{n_epochs}"
