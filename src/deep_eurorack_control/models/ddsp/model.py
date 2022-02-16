@@ -13,10 +13,12 @@ from deep_eurorack_control.models.ddsp.ops import *
 from deep_eurorack_control.helpers.ddsp import plot_metrics
 
 class DDSP:
-    def __init__(self,sr,frame_size,n_harmonics,n_bands,residual=False,n_z=16):
+    def __init__(self,model_name,sr,frame_size,n_harmonics,n_bands,n_hidden,residual=False,n_z=16):
 
+        self.model_name = model_name
         self.sr = sr
         self.frame_size = frame_size
+        self.n_hidden = n_hidden
         self.n_harmonics = n_harmonics 
         self.n_bands = n_bands
         self.scales = [2048,1024,512,256,128,64]
@@ -25,7 +27,7 @@ class DDSP:
         self.n_mfcc = 30
         
         
-        self.decoder = Decoder(self.sr,self.n_harmonics,self.n_bands,self.residual,self.n_z).to(settings.device)
+        self.decoder = Decoder(self.sr,self.n_harmonics,self.n_bands,self.n_hidden,self.residual,self.n_z).to(settings.device)
         
         if self.residual==True:
             self.encoder = Encoder(self.n_z,self.n_mfcc).to(settings.device)
@@ -151,7 +153,11 @@ class DDSP:
                 torch.save(
                 {
                     "epoch": epoch,
+                    "n_bans": self.n_bands,
+                    "n_harmonics": self.n_harmonics,
+                    "sr" : self.sr,
+                    "frame_size" : self.frame_size,
                     "model_state_dict": self.decoder.state_dict(),
                     "optimizer_state_dict": self._opt.state_dict(),
                     "loss": losses,
-                }, os.path.join(logdir, "DDSP_lr_{lr}_n_epochs_{n_epochs}__sr_{self.sr}__frame_{self.frame_size}.pt"))
+                }, os.path.join(logdir, f"DDSP_{self.model_name}_lr_{lr}_n_epochs_{n_epochs}__sr_{self.sr}__frame_{self.frame_size}.pt"))

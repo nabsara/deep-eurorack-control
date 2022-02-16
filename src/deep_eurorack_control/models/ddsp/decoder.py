@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch
 
 class Decoder(nn.Module):
-    def __init__(self, sr,n_amps,n_bands,residual=False,n_z=16,n_hidden=512):
+    def __init__(self, sr,n_amps,n_bands,n_hidden=512,residual=False,n_z=16):
         super().__init__()
 
         self.residual=residual
@@ -67,7 +67,7 @@ class Decoder(nn.Module):
         
         self.cache_gru.copy_(cache_gru)
         net_out =self.mlp_out(torch.cat([gru_out,pitch,loud],-1))
-        
+    
         harmonics = self.dense_amps(net_out)
         harmonics = 2*torch.sigmoid(harmonics)**2.3025851 + 1e-7
         filters = self.dense_filters(net_out)

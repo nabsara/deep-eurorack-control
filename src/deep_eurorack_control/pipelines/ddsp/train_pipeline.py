@@ -8,16 +8,18 @@ class DDSP_Pipeline:
     
     def __init__(
         self,
+        model_name,
         dataset_dir,
         sr,
         frame_size,
         n_harmonics,
         n_bands,
+        n_hidden,
         residual,
         n_z
         
     ):
-        self.model = DDSP(sr,frame_size,n_harmonics,n_bands,residual,n_z)
+        self.model = DDSP(model_name,sr,frame_size,n_harmonics,n_bands,n_hidden,residual,n_z)
         
         self.dataset = NSynth_ddsp(dataset_dir)
 
