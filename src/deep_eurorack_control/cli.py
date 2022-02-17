@@ -1,6 +1,9 @@
 import click
 import json
 import os
+import torch
+import random
+import numpy as np
 
 from deep_eurorack_control.config import settings
 from deep_eurorack_control.pipelines.mnist_pipeline import MNISTPipeline
@@ -112,6 +115,11 @@ def train_mnist_vae(
     default=16000,
     help="sampling rate",
 )
+@click.option(
+    "--seed",
+    default=0,
+    help="Set seed for reproducibility",
+)
 @click.option("--noise", is_flag=True)
 def train_rave(
     data_dir,
@@ -125,9 +133,21 @@ def train_rave(
     display_step,
     n_epoch_warmup,
     sampling_rate,
+    seed,
     noise
 ):
     print(locals())
+
+    # Seed initialization for reproducibility
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
     pipeline = RAVEPipeline(
         data_dir=data_dir,
         audio_dir=audio_dir,
@@ -145,7 +165,8 @@ def train_rave(
         learning_rate=learning_rate,
         n_epochs=n_epochs,
         display_step=display_step,
-        n_epoch_warmup=n_epoch_warmup
+        n_epoch_warmup=n_epoch_warmup,
+        seed=seed
     )
 
 

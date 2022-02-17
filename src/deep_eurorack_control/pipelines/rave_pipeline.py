@@ -27,8 +27,8 @@ class RAVEPipeline:
             init_weights=init_weights
         )
 
-    def train(self, learning_rate, n_epochs, display_step, n_epoch_warmup):
-        model_filename = f"{self.model.model_name}__b_{self.batch_size}__lr_{learning_rate}__e_{n_epochs}__e_warmup_{n_epoch_warmup}"
+    def train(self, learning_rate, n_epochs, display_step, n_epoch_warmup, seed):
+        model_filename = f"{self.model.model_name}__b_{self.batch_size}__lr_{learning_rate}__e_{n_epochs}__e_warmup_{n_epoch_warmup}__seed_{seed}"
 
         self.model.train(
             train_loader=self.train_loader,
