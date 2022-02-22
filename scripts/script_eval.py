@@ -67,7 +67,7 @@ def inference(model, test_loader):
     y_list = []
     for x, _ in tqdm(test_loader):
         x_list.append(x)
-        x = torch.reshape(x, (x.shape[0], 1, -1))
+        x = torch.reshape(x, (x.shape[0], 1, -1)).to(settings.device)
 
         # 1. multi band decomposition pqmf
         x = model.multi_band_decomposition(x)
