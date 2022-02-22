@@ -133,10 +133,10 @@ def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_ba
         data_dir=data_dir,
         audio_dir=audio_dir,
         nsynth_json=nsynth_json,
-        valid_ratio=0
+        valid_ratio=0.
     )
 
-    checkpoint = torch.load(os.path.join(models_dir, checkpoint_file), map_location=torch.device('cpu'))
+    checkpoint = torch.load(os.path.join(models_dir, checkpoint_file), map_location=settings.device)
 
     model = RAVE(
         n_band=n_band,
