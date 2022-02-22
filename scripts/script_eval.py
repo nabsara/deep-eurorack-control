@@ -54,8 +54,8 @@ def mel_spectrogram(x, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin,
 
 
 def melspectrogram_loss(x, x_gen, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False):
-    x_mel = mel_spectrogram(x, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center)
-    x_gen_mel = mel_spectrogram(x_gen, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center)
+    x_mel = mel_spectrogram(x, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center).to(settings.device)
+    x_gen_mel = mel_spectrogram(x_gen, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center).to(settings.device)
 
     loss_melspectro = F.l1_loss(x_mel, x_gen_mel)
 
