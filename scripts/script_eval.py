@@ -3,6 +3,8 @@ import torch.nn as nn
 import os
 import click
 from tqdm import tqdm
+import torchaudio
+import cdpam
 
 import torch.nn.functional as F
 from librosa.filters import mel as librosa_mel_fn
@@ -119,7 +121,8 @@ def inference(model, test_loader):
     help="Number of bands in the multiband signal decomposition (pqmf)",
 )
 @click.option("--noise", is_flag=True)
-def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_band, noise):
+@click.option("--jnd", is_flag=True)
+def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_band, noise, jnd):
     n_fft = 1024
     num_mels = 80
     sampling_rate = 16000
@@ -154,8 +157,18 @@ def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_ba
 
     with torch.no_grad():
         x, y = inference(model, test_loader)
-        loss = melspectrogram_loss(x, y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False)
-        print(loss)
+        mel_loss = melspectrogram_loss(x, y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False)
+        print(f"mel_loss: {mel_loss}")
+
+        if jnd:
+            # pip install cdpam
+            loss_fn = cdpam.CDPAM(dev=settings.device)
+
+            resample_rate = 22050
+            sample_rate = 16000
+            resampler = torchaudio.transforms.Resample(sample_rate, resample_rate, dtype=x.dtype).to(settings.device)
+            jnd_loss = torch.mean(loss_fn.forward(resampler(x) * 32768, resampler(y) * 32768))
+            print(f"jnd_loss: {jnd_loss}")
 
 
 @click.group()
