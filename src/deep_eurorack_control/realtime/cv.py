@@ -8,20 +8,21 @@ import tediumControl
 
 
 class CV(threading.Thread):
-    def __init__(self, q, start_idx, end_idx, default_enveloppes_folder):
+    def __init__(self, q):
         threading.Thread.__init__(self, daemon=True)
         self.q = q
 
-        # Used to restric the range of the default envelopes (to remove silence)
-        self.start_idx = start_idx
-        self.end_idx = end_idx
+        # # Used to restric the range of the default envelopes (to remove silence)
+        # self.start_idx = start_idx
+        # self.end_idx = end_idx
 
         self.read_time_delta = 0.01
         self.spi_opened = 0
         self.spifd = -1
 
         self.cv_values = []
-        self.cv_values_buffer_size = self.end_idx - self.start_idx
+        self.cv_values_buffer_size =1
+        # self.end_idx - self.start_idx
         print(f"{self.cv_values_buffer_size} CV values buffer target size")
         # Active_enveloppes keeps track of which CVs are used
         # replace all non-used ones with the default_enveloppes
@@ -43,7 +44,7 @@ class CV(threading.Thread):
         print("[+] - Connected to the ADC, spifd =", self.spifd)
         self.spi_opened = 1
         # Init the buffer to the max size (easier for audio to have a fixed length buffer)
-        for v in range(6):
+        for v in range(3):
             self.cv_values.append(np.zeros(v))
         print ("[+] - CV read thread launched")
 
@@ -83,14 +84,15 @@ class CV(threading.Thread):
             # if not self.active_CVs[idx]:
             #     res[key] = self.default_enveloppes[key][:self.cv_values_buffer_size].unsqueeze(0)
             # else:
-                print(f"[ ] - Using CV values for: {key}")
+                # print(f"[ ] - Using CV values for: {key}")
+                # print(self.cv_values[idx])
                 res[key] = torch.from_numpy(
                     np.expand_dims(
                         np.expand_dims(self.cv_values[idx], -1),
                         0
                     ).astype(np.float)
                 ).float()
-                print(res[key])
+                # print(res[key])
         return res
 
     def run(self):
@@ -98,7 +100,7 @@ class CV(threading.Thread):
         while 42:
             start_time = time.time()
             self.do_turn()
-            print(self.cv_values)
+            # print(self.cv_values)
             sleep_time = self.read_time_delta - (time.time() - start_time)
             if sleep_time > 0:
                 time.sleep(sleep_time)
@@ -108,14 +110,15 @@ class CV(threading.Thread):
     def do_turn(self):
         # adc_bang() Returns a tuple of 8 values
         # (only 6 input CVs tho, don't know what are the last two ones)
-        new_cv_values = tediumControl.adc_bang(self.spifd)  # DEBUG
+        new_cv_values = tediumControl.adc_bang(self.spifd)[1:4]  # DEBUG
+        # print(new_cv_values)
         # new_cv_values = [0, 0, 0, 0, 0, 4000]  # DEBUG
         self.update_CV_values_buffer(new_cv_values)
         # self.detect_active_cvs()
         # Play only if the 6th CV value is > 2000
         if new_cv_values[2] > 2000:
             if not self.is_playing:
-                self.is_playing = True
+                self.is_playing = False
                 # If there is still something in the queue it's outdated, remove everything
                 with self.q.mutex:
                     self.q.queue.clear()

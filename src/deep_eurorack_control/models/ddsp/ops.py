@@ -89,23 +89,14 @@ def smooth(params,frame_size,final_size):
 def generate_signal(pitch,harmonics,filters,frame_size,sr,init_phase=0):
     amps = harmonics[:,:,1:]
     level = harmonics[:,:,:1]
-    
     freqs = pitch*torch.arange(1,amps.shape[-1]+1).to(settings.device)[None,None,:]
     amps = amps*((freqs<sr/2).float()+1e-4)
-    
     amps = level*amps/torch.sum(amps,axis=-1,keepdim=True)
-
-
-    
     len_signal = pitch.shape[1]*frame_size
-    
     amps = upsample(amps,len_signal)
     f0  =  upsample(pitch,len_signal)
-
     noise = noise_synth(filters,frame_size)
-    
     harmo,final_phase = h_synth(f0,amps,sr,init_phase)
-    
     return(harmo+noise,final_phase)
 
 
