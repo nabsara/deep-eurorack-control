@@ -81,11 +81,11 @@ def run_analysis(filepath,filename,n_hidden,dataloader,batch_size):
     for i in range(10):
         inf_time += compute_loss(dataloader,model,loss_fn,loss=False)/10
     inf_speed =  64000*len(dataloader)*batch_size/inf_time
-    multiscale_loss,mel_loss,jnd_loss = compute_loss(dataloader,model,loss_fn,loss=True)
+    # multiscale_loss,mel_loss,jnd_loss = compute_loss(dataloader,model,loss_fn,loss=True)
     print('Model : ',filename)
-    print("Multiscale Spectral Loss : ",round(multiscale_loss,2))
-    print("Mel Loss : ",round(mel_loss,2))
-    print("JND Loss : ",round(jnd_loss,2))
+    # print("Multiscale Spectral Loss : ",round(multiscale_loss,2))
+    # print("Mel Loss : ",round(mel_loss,2))
+    # print("JND Loss : ",round(jnd_loss,2))
     print("Inference Speed : ",round(inf_speed*1e-6,2)," M samples/sec")
     return(inf_speed,multiscale_loss,mel_loss,jnd_loss)
 
