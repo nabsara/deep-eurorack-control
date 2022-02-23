@@ -162,12 +162,13 @@ def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_ba
 
         if jnd:
             # pip install cdpam
-            loss_fn = cdpam.CDPAM(dev=settings.device)
-
+            loss_fn = cdpam.CDPAM(dev=torch.device('cpu'))  # settings.device)
+            x = x.to(torch.device('cpu'))
+            y = y.to(torch.device('cpu'))
             resample_rate = 22050
             sample_rate = 16000
-            resampler = torchaudio.transforms.Resample(sample_rate, resample_rate, dtype=x.dtype).to(settings.device)
-            jnd_loss = torch.mean(loss_fn.forward(resampler(x) * 32768, resampler(y) * 32768)).to(settings.device)
+            resampler = torchaudio.transforms.Resample(sample_rate, resample_rate, dtype=x.dtype).to(torch.device('cpu'))
+            jnd_loss = torch.mean(loss_fn.forward(resampler(x) * 32768, resampler(y) * 32768)).to(torch.device('cpu'))
             print(f"jnd_loss: {jnd_loss}")
 
 
