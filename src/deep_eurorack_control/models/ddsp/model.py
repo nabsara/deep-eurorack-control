@@ -1,16 +1,16 @@
 import torch
-# from tqdm import tqdm
+from tqdm import tqdm
 import time
 import os
-# import torchaudio
-# from torch.utils.tensorboard import SummaryWriter
-# from deep_eurorack_control.config import settings
+import torchaudio
+from torch.utils.tensorboard import SummaryWriter
+from deep_eurorack_control.config import settings
 
 from deep_eurorack_control.models.ddsp.decoder import Decoder
 from deep_eurorack_control.models.ddsp.encoder import Encoder
 
-# from deep_eurorack_control.models.ddsp.ops import *
-# from deep_eurorack_control.helpers.ddsp import plot_metrics
+from deep_eurorack_control.models.ddsp.ops import *
+from deep_eurorack_control.helpers.ddsp import plot_metrics
 
 class DDSP:
     def __init__(self,model_name,sr,frame_size,n_harmonics,n_bands,n_hidden,residual=False,n_z=16):
@@ -27,12 +27,7 @@ class DDSP:
         self.n_mfcc = 30
         
         
-<<<<<<< HEAD
-        self.decoder = Decoder(self.sr,self.n_harmonics,self.n_bands,self.residual,self.n_z)
-        #.to(settings.device)
-=======
         self.decoder = Decoder(self.sr,self.n_harmonics,self.n_bands,self.n_hidden,self.residual,self.n_z).to(settings.device)
->>>>>>> bec8d9064027b82458fc6bb4216493092646d122
         
         if self.residual==True:
             self.encoder = Encoder(self.n_z,self.n_mfcc).to(settings.device)
