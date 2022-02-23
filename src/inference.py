@@ -160,7 +160,7 @@ if __name__ =="__main__":
     filenames = os.listdir(filepath)
 
     # dataset_dir = r'C:\Users\NILS\Documents\ATIAM\PAM\Datasets\nsynth_test_processed'
-    dataset_dir = '/fast-1/atiam/nils/nsynth_string_train_pitchestim'
+    dataset_dir = '/fast-1/atiam/nils/nsynth_test_processed'
 
     batch_size =1
     dataset = NSynth_ddsp(dataset_dir)
