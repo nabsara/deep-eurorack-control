@@ -87,7 +87,7 @@ def run_analysis(filepath,filename,n_hidden,dataloader,batch_size):
     # print("Mel Loss : ",round(mel_loss,2))
     # print("JND Loss : ",round(jnd_loss,2))
     print("Inference Speed : ",round(inf_speed*1e-6,2)," M samples/sec")
-    return(inf_speed,multiscale_loss,mel_loss,jnd_loss)
+    # return(inf_speed,multiscale_loss,mel_loss,jnd_loss)
 
 
 
