@@ -5,6 +5,7 @@ import click
 from tqdm import tqdm
 import torchaudio
 import cdpam
+import time
 
 import torch.nn.functional as F
 from librosa.filters import mel as librosa_mel_fn
@@ -172,12 +173,90 @@ def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_ba
             print(f"jnd_loss: {jnd_loss}")
 
 
+@click.option(
+    "--data_dir",
+    default=settings.DATA_DIR,
+    help="Absolute path to data directory",
+)
+@click.option(
+    "--audio_dir",
+    default=settings.AUDIO_DIR,
+    help="Absolute path to audio .wav directory",
+)
+@click.option(
+    "--models_dir",
+    default=settings.MODELS_DIR,
+    help="Absolute path to models directory",
+)
+@click.option(
+    "--checkpoint_file",
+    default="n_synth_rave__n_band_8__latent_128__sr_16000__noise_True__init_weights_True__b_8__lr_0.0001__e_250__e_warmup_150__vae.pt",
+    help="model checkpoint",
+)
+@click.option(
+    "--nsynth_json",
+    default="nsynth_string_test.json",
+    help="Nsynth JSON audio files selection"
+)
+@click.option(
+    "--n_band",
+    default=8,
+    help="Number of bands in the multiband signal decomposition (pqmf)",
+)
+@click.option("--noise", is_flag=True)
+def inference_time(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_band, noise):
+    test_loader, _ = nsynth_data_loader(
+        batch_size=n_band,
+        data_dir=data_dir,
+        audio_dir=audio_dir,
+        nsynth_json=nsynth_json,
+        valid_ratio=0.
+    )
+
+    checkpoint = torch.load(os.path.join(models_dir, checkpoint_file), map_location=settings.device)
+
+    model = RAVE(
+        n_band=n_band,
+        latent_dim=128,
+        hidden_dim=64,
+        sampling_rate=16000,
+        use_noise=noise,
+        init_weights=True
+    )
+
+    model.encoder.load_state_dict(checkpoint['encoder_state_dict'])
+    model.decoder.load_state_dict(checkpoint['decoder_state_dict'])
+    model.encoder.eval()
+    model.decoder.eval()
+
+    with torch.no_grad():
+        start = time.time()
+        for x, _ in test_loader:
+            x = torch.reshape(x, (x.shape[0], 1, -1)).to(settings.device)
+
+            # 1. multi band decomposition pqmf
+            x = model.multi_band_decomposition(x)
+
+            # 2. Encode data
+            mean, var = model.encoder(x)
+
+            # z, _ = model.reparametrize(mean, var)
+            z = mean
+
+            y = model.decoder(z)
+            y = model.multi_band_decomposition.inverse(y)
+            y = y.reshape(y.shape[0], -1)
+        end = time.time()
+        print(f"time : {end - start}")
+
+
 @click.group()
 def main():
     pass
 
 
 main.command()(evaluate)
+main.command()(inference_time)
 
 
 if __name__ == "__main__":
