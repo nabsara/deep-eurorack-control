@@ -153,28 +153,9 @@ def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_ba
     model.decoder.eval()
 
     with torch.no_grad():
-        # x, y = inference(model, test_loader)
-        losses = []
-        for s, _ in tqdm(test_loader):
-            x = torch.reshape(s, (s.shape[0], 1, -1)).to(settings.device)
-
-            # 1. multi band decomposition pqmf
-            x = model.multi_band_decomposition(x)
-
-            # 2. Encode data
-            mean, var = model.encoder(x)
-
-            # z, _ = model.reparametrize(mean, var)
-            z = mean
-
-            y = model.decoder(z)
-            y = model.multi_band_decomposition.inverse(y)
-            y = y.reshape(y.shape[0], -1)
-            loss = melspectrogram_loss(s, y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False)
-            losses.append(loss)
-        print(len(losses))
-        mel_loss = torch.mean(losses)
-        print(mel_loss)
+        x, y = inference(model, test_loader)
+        loss = melspectrogram_loss(x, y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False)
+        print(loss)
 
 
 @click.group()
