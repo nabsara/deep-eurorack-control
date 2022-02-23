@@ -206,7 +206,7 @@ def evaluate(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_ba
 @click.option("--noise", is_flag=True)
 def inference_time(data_dir, audio_dir, models_dir, checkpoint_file, nsynth_json, n_band, noise):
     test_loader, _ = nsynth_data_loader(
-        batch_size=n_band,
+        batch_size=1,
         data_dir=data_dir,
         audio_dir=audio_dir,
         nsynth_json=nsynth_json,
