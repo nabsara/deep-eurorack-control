@@ -158,6 +158,7 @@ class DDSP:
                     "sr" : self.sr,
                     "frame_size" : self.frame_size,
                     "model_state_dict": self.decoder.state_dict(),
+                    "model_state_dict_encoder": self.encoder.state_dict(),
                     "optimizer_state_dict": self._opt.state_dict(),
                     "loss": losses,
                 }, os.path.join(logdir, f"DDSP_{self.model_name}_lr_{lr}_n_epochs_{n_epochs}__sr_{self.sr}__frame_{self.frame_size}.pt"))
